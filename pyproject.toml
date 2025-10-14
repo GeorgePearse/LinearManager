@@ -7,7 +7,7 @@ name = "linear-manager"
 version = "0.1.0"
 description = "CLI tool to sync YAML-defined tickets to Linear"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 authors = [{name = "LinearManager Maintainers"}]
 license = {text = "MIT"}
 dependencies = [
@@ -18,9 +18,13 @@ keywords = ["linear", "cli", "automation"]
 classifiers = [
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=4.1",
 ]
 
 [project.scripts]
