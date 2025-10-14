@@ -31,11 +31,6 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Validate manifests without writing to Linear.",
     )
-    sync_parser.add_argument(
-        "--mark-done",
-        action="store_true",
-        help="Mark issues flagged as complete in manifests as done in Linear.",
-    )
 
     # Legacy: direct file argument (for backwards compatibility)
     parser.add_argument(
@@ -48,11 +43,6 @@ def build_parser() -> argparse.ArgumentParser:
         "--dry-run",
         action="store_true",
         help="Validate manifest without writing to Linear.",
-    )
-    parser.add_argument(
-        "--mark-done",
-        action="store_true",
-        help="Mark issues flagged as complete in the manifest as done in Linear.",
     )
     return parser
 
@@ -82,7 +72,6 @@ def main(argv: list[str] | None = None) -> int:
                 config = SyncConfig(
                     manifest_path=yaml_file,
                     dry_run=args.dry_run,
-                    mark_done=args.mark_done,
                 )
                 try:
                     run_sync(config)
@@ -102,7 +91,6 @@ def main(argv: list[str] | None = None) -> int:
             config = SyncConfig(
                 manifest_path=path,
                 dry_run=args.dry_run,
-                mark_done=args.mark_done,
             )
     else:
         # Legacy mode: direct file argument
@@ -113,7 +101,6 @@ def main(argv: list[str] | None = None) -> int:
         config = SyncConfig(
             manifest_path=args.manifest,
             dry_run=args.dry_run,
-            mark_done=args.mark_done,
         )
 
     try:

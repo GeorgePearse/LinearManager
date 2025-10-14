@@ -157,7 +157,6 @@ class TestIssueParsing:
         assert issue.labels == []
         assert issue.assignee_email is None
         assert issue.priority is None
-        assert issue.complete is False
 
     def test_parse_full_issue(self) -> None:
         """Test parsing an issue with all fields."""
@@ -171,7 +170,6 @@ class TestIssueParsing:
             "labels": ["Bug", "Frontend"],
             "assignee_email": "dev@example.com",
             "priority": 2,
-            "complete": True,
         }
         issue = _parse_issue(data, defaults, 1)
         assert issue.title == "Test Issue"
@@ -182,7 +180,6 @@ class TestIssueParsing:
         assert issue.labels == ["Bug", "Frontend"]
         assert issue.assignee_email == "dev@example.com"
         assert issue.priority == 2
-        assert issue.complete is True
 
     def test_parse_issue_with_defaults(self) -> None:
         """Test that issue inherits from defaults."""
@@ -265,6 +262,20 @@ class TestIssueParsing:
         assert "bug" not in issue.labels
         assert "Frontend" in issue.labels
         assert "Backend" in issue.labels
+
+    def test_parse_issue_with_status_alias(self) -> None:
+        """Test that 'status' is accepted as alias for 'state'."""
+        defaults = ManifestDefaults(team_key="ENG")
+        data: dict[str, str] = {"title": "Test Issue", "status": "Done"}
+        issue = _parse_issue(data, defaults, 1)
+        assert issue.state == "Done"
+
+    def test_parse_issue_status_overrides_state(self) -> None:
+        """Test that 'status' takes precedence when both are provided."""
+        defaults = ManifestDefaults(team_key="ENG")
+        data: dict[str, str] = {"title": "Test Issue", "state": "Todo", "status": "Done"}
+        issue = _parse_issue(data, defaults, 1)
+        assert issue.state == "Done"
 
 
 class TestHelperFunctions:
