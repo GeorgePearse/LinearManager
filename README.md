@@ -42,9 +42,27 @@ issues:
 ## Syncing
 
 ```bash
-manager path/to/issues.yaml            # apply changes
-manager path/to/issues.yaml --dry-run  # preview without touching Linear
-manager path/to/issues.yaml --mark-done
+# Sync all YAML files in current directory
+manager sync .
+
+# Sync all YAML files in a specific directory
+manager sync path/to/manifests
+
+# Sync a single file
+manager sync path/to/issues.yaml
+
+# Preview changes without syncing
+manager sync . --dry-run
+
+# Mark completed issues as done
+manager sync . --mark-done
 ```
 
 The tool syncs YAML → Linear only; it never pulls changes back into the manifest.
+
+### Legacy mode
+
+The old single-file syntax still works for backwards compatibility:
+```bash
+manager path/to/issues.yaml
+```
