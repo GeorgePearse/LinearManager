@@ -63,7 +63,9 @@ def run_sync(config: SyncConfig) -> None:
     manifest = _load_manifest(config.manifest_path)
     token = os.environ.get("LINEAR_API_KEY")
     if not token:
-        raise RuntimeError("LINEAR_API_KEY environment variable is required to sync with Linear.")
+        raise RuntimeError(
+            "LINEAR_API_KEY environment variable is required to sync with Linear."
+        )
 
     team_keys = sorted({issue.team_key for issue in manifest.issues})
     with LinearClient(token=token) as client:
@@ -75,14 +77,18 @@ def run_sync(config: SyncConfig) -> None:
             _process_issue(client, context, issue, config)
 
 
-def _process_issue(client: "LinearClient", context: "TeamContext", spec: IssueSpec, config: SyncConfig) -> None:
+def _process_issue(
+    client: "LinearClient", context: "TeamContext", spec: IssueSpec, config: SyncConfig
+) -> None:
     descriptor = f"[{context.key}] {spec.title}"
 
     existing = None
     if spec.identifier:
         existing = client.fetch_issue_by_identifier(spec.identifier)
         if not existing:
-            print(f"{descriptor}: identifier {spec.identifier} not found; will create new issue.")
+            print(
+                f"{descriptor}: identifier {spec.identifier} not found; will create new issue."
+            )
 
     if existing:
         update_input: dict[str, Any] = {
@@ -101,13 +107,17 @@ def _process_issue(client: "LinearClient", context: "TeamContext", spec: IssueSp
             update_input["stateId"] = context.done_state_id
 
         if config.dry_run:
-            print(f"{descriptor}: DRY RUN would update issue {existing['identifier']} ({existing['url']}).")
+            print(
+                f"{descriptor}: DRY RUN would update issue {existing['identifier']} ({existing['url']})."
+            )
         else:
             updated = client.update_issue(existing["id"], update_input)
             print(f"{descriptor}: updated {updated['identifier']} ({updated['url']}).")
 
         if spec.complete and not config.mark_done:
-            print(f"{descriptor}: complete=true but --mark-done not set; leaving issue open.")
+            print(
+                f"{descriptor}: complete=true but --mark-done not set; leaving issue open."
+            )
         return
 
     create_input: dict[str, Any] = {
@@ -141,7 +151,9 @@ def _load_manifest(path: Path) -> Manifest:
     if not path.exists():
         raise RuntimeError(f"Manifest path {path} does not exist.")
     if path.is_dir():
-        raise RuntimeError(f"Manifest path {path} is a directory, expected a YAML file.")
+        raise RuntimeError(
+            f"Manifest path {path} is a directory, expected a YAML file."
+        )
 
     raw = yaml.safe_load(path.read_text(encoding="utf-8"))
     if raw is None:
@@ -155,7 +167,10 @@ def _load_manifest(path: Path) -> Manifest:
         raise RuntimeError("'issues' must be a list.")
 
     defaults = _parse_defaults(raw.get("defaults", {}))
-    issues = [_parse_issue(item, defaults, index) for index, item in enumerate(issues_raw, start=1)]
+    issues = [
+        _parse_issue(item, defaults, index)
+        for index, item in enumerate(issues_raw, start=1)
+    ]
     return Manifest(issues=issues)
 
 
@@ -171,7 +186,9 @@ def _parse_defaults(data: Any) -> ManifestDefaults:
         team_key=_optional_str(data.get("team_key")),
         state=_optional_str(data.get("state")),
         labels=[_require_str(label, "'defaults.labels' entries") for label in labels],
-        assignee_email=_optional_str(data.get("assignee_email") or data.get("assignee")),
+        assignee_email=_optional_str(
+            data.get("assignee_email") or data.get("assignee")
+        ),
         priority=_optional_int(data.get("priority")),
     )
 
@@ -186,18 +203,24 @@ def _parse_issue(data: Any, defaults: ManifestDefaults, index: int) -> IssueSpec
     state = _optional_str(data.get("state")) or defaults.state
     team_key = _optional_str(data.get("team_key")) or defaults.team_key
     if not team_key:
-        raise RuntimeError(f"Issue #{index}: 'team_key' missing and no default provided.")
+        raise RuntimeError(
+            f"Issue #{index}: 'team_key' missing and no default provided."
+        )
 
     labels_raw = data.get("labels")
     labels = defaults.labels.copy()
     if labels_raw:
         if not isinstance(labels_raw, list):
             raise RuntimeError(f"Issue #{index}: 'labels' must be a list of strings.")
-        labels.extend(_require_str(label, f"Issue #{index}: label entries") for label in labels_raw)
+        labels.extend(
+            _require_str(label, f"Issue #{index}: label entries")
+            for label in labels_raw
+        )
     labels = _dedupe(labels)
 
     assignee_email = (
-        _optional_str(data.get("assignee_email") or data.get("assignee")) or defaults.assignee_email
+        _optional_str(data.get("assignee_email") or data.get("assignee"))
+        or defaults.assignee_email
     )
     priority = _optional_int(data.get("priority"), allow_none=True)
     if priority is None:
@@ -312,7 +335,9 @@ class TeamContext:
         try:
             return self.members[lookup]
         except KeyError as exc:  # pragma: no cover - defensive
-            raise RuntimeError(f"No Linear member with email '{email}' in team {self.key}.") from exc
+            raise RuntimeError(
+                f"No Linear member with email '{email}' in team {self.key}."
+            ) from exc
 
 
 class LinearClient:
@@ -359,7 +384,9 @@ class LinearClient:
                 done_state_id = node["id"]
                 break
         if not done_state_id:
-            raise RuntimeError(f"Team {team_key} does not have a 'completed' workflow state.")
+            raise RuntimeError(
+                f"Team {team_key} does not have a 'completed' workflow state."
+            )
 
         labels_raw = team.get("labels", {}).get("nodes", [])
         labels = {_normalize_key(node["name"]): node["id"] for node in labels_raw}
@@ -401,7 +428,9 @@ class LinearClient:
             raise LinearApiError("Linear API did not return issue data after creation.")
         return issue
 
-    def update_issue(self, issue_id: str, update_input: dict[str, Any]) -> dict[str, Any]:
+    def update_issue(
+        self, issue_id: str, update_input: dict[str, Any]
+    ) -> dict[str, Any]:
         payload = self._request(
             UPDATE_ISSUE_MUTATION,
             {"id": issue_id, "input": update_input},

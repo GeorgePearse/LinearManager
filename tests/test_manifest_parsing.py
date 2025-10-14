@@ -8,9 +8,7 @@ from pathlib import Path
 import pytest
 
 from linear_manager.sync import (
-    Manifest,
     ManifestDefaults,
-    IssueSpec,
     _load_manifest,
     _parse_defaults,
     _parse_issue,
@@ -82,7 +80,9 @@ issues:
             path = Path(f.name)
 
         try:
-            with pytest.raises(RuntimeError, match="must include a non-empty 'issues' list"):
+            with pytest.raises(
+                RuntimeError, match="must include a non-empty 'issues' list"
+            ):
                 _load_manifest(path)
         finally:
             path.unlink()
@@ -131,7 +131,8 @@ class TestDefaultsParsing:
 
     def test_parse_defaults_with_assignee_alias(self) -> None:
         """Test that 'assignee' is accepted as alias for 'assignee_email'."""
-        defaults = _parse_defaults({"assignee": "dev@example.com"})
+        data: dict[str, str] = {"assignee": "dev@example.com"}
+        defaults = _parse_defaults(data)
         assert defaults.assignee_email == "dev@example.com"
 
     def test_parse_defaults_invalid_labels_type(self) -> None:
@@ -229,14 +230,14 @@ class TestIssueParsing:
     def test_parse_issue_missing_title(self) -> None:
         """Test parsing issue without title fails."""
         defaults = ManifestDefaults(team_key="ENG")
-        data = {}
+        data: dict[str, str] = {}
         with pytest.raises(RuntimeError, match="'title' is required"):
             _parse_issue(data, defaults, 1)
 
     def test_parse_issue_with_id_alias(self) -> None:
         """Test that 'id' is accepted as alias for 'identifier'."""
         defaults = ManifestDefaults(team_key="ENG")
-        data = {"title": "Test Issue", "id": "ENG-123"}
+        data: dict[str, str] = {"title": "Test Issue", "id": "ENG-123"}
         issue = _parse_issue(data, defaults, 1)
         assert issue.identifier == "ENG-123"
 

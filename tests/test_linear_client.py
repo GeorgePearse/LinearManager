@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-from typing import Any
 from unittest.mock import Mock, patch
 
 import httpx
 import pytest
 
-from linear_manager.sync import LinearClient, LinearApiError, TeamContext
+from linear_manager.sync import LinearClient, LinearApiError
 
 
 class TestLinearClient:
@@ -46,7 +45,9 @@ class TestLinearClient:
                 assert client is not None
             mock_instance.close.assert_called_once()
 
-    def test_fetch_team_context_success(self, linear_client: LinearClient, mock_client: Mock) -> None:
+    def test_fetch_team_context_success(
+        self, linear_client: LinearClient, mock_client: Mock
+    ) -> None:
         """Test successful team context fetch."""
         mock_response = Mock()
         mock_response.json.return_value = {
@@ -58,9 +59,21 @@ class TestLinearClient:
                             "key": "ENG",
                             "states": {
                                 "nodes": [
-                                    {"id": "state-1", "name": "Backlog", "type": "backlog"},
-                                    {"id": "state-2", "name": "Todo", "type": "started"},
-                                    {"id": "state-3", "name": "Done", "type": "completed"},
+                                    {
+                                        "id": "state-1",
+                                        "name": "Backlog",
+                                        "type": "backlog",
+                                    },
+                                    {
+                                        "id": "state-2",
+                                        "name": "Todo",
+                                        "type": "started",
+                                    },
+                                    {
+                                        "id": "state-3",
+                                        "name": "Done",
+                                        "type": "completed",
+                                    },
                                 ]
                             },
                             "labels": {
@@ -90,7 +103,9 @@ class TestLinearClient:
         assert "bug" in context.labels
         assert "dev1@example.com" in context.members
 
-    def test_fetch_team_context_not_found(self, linear_client: LinearClient, mock_client: Mock) -> None:
+    def test_fetch_team_context_not_found(
+        self, linear_client: LinearClient, mock_client: Mock
+    ) -> None:
         """Test team context fetch when team not found."""
         mock_response = Mock()
         mock_response.json.return_value = {"data": {"teams": {"nodes": []}}}
@@ -99,7 +114,9 @@ class TestLinearClient:
         with pytest.raises(RuntimeError, match="Linear team with key 'ENG' not found"):
             linear_client.fetch_team_context("ENG")
 
-    def test_fetch_team_context_no_completed_state(self, linear_client: LinearClient, mock_client: Mock) -> None:
+    def test_fetch_team_context_no_completed_state(
+        self, linear_client: LinearClient, mock_client: Mock
+    ) -> None:
         """Test team context fetch when no completed state exists."""
         mock_response = Mock()
         mock_response.json.return_value = {
@@ -111,7 +128,11 @@ class TestLinearClient:
                             "key": "ENG",
                             "states": {
                                 "nodes": [
-                                    {"id": "state-1", "name": "Backlog", "type": "backlog"},
+                                    {
+                                        "id": "state-1",
+                                        "name": "Backlog",
+                                        "type": "backlog",
+                                    },
                                 ]
                             },
                             "labels": {"nodes": []},
@@ -123,10 +144,14 @@ class TestLinearClient:
         }
         mock_client.post.return_value = mock_response
 
-        with pytest.raises(RuntimeError, match="does not have a 'completed' workflow state"):
+        with pytest.raises(
+            RuntimeError, match="does not have a 'completed' workflow state"
+        ):
             linear_client.fetch_team_context("ENG")
 
-    def test_fetch_issue_by_identifier_found(self, linear_client: LinearClient, mock_client: Mock) -> None:
+    def test_fetch_issue_by_identifier_found(
+        self, linear_client: LinearClient, mock_client: Mock
+    ) -> None:
         """Test fetching existing issue by identifier."""
         mock_response = Mock()
         mock_response.json.return_value = {
@@ -146,7 +171,9 @@ class TestLinearClient:
         assert issue["id"] == "issue-123"
         assert issue["identifier"] == "ENG-123"
 
-    def test_fetch_issue_by_identifier_not_found(self, linear_client: LinearClient, mock_client: Mock) -> None:
+    def test_fetch_issue_by_identifier_not_found(
+        self, linear_client: LinearClient, mock_client: Mock
+    ) -> None:
         """Test fetching non-existent issue."""
         mock_response = Mock()
         mock_response.json.return_value = {"data": {"issue": None}}
@@ -155,7 +182,9 @@ class TestLinearClient:
         issue = linear_client.fetch_issue_by_identifier("ENG-999")
         assert issue is None
 
-    def test_create_issue_success(self, linear_client: LinearClient, mock_client: Mock) -> None:
+    def test_create_issue_success(
+        self, linear_client: LinearClient, mock_client: Mock
+    ) -> None:
         """Test successful issue creation."""
         mock_response = Mock()
         mock_response.json.return_value = {
@@ -175,7 +204,9 @@ class TestLinearClient:
         result = linear_client.create_issue(issue_input)
         assert result["identifier"] == "ENG-123"
 
-    def test_update_issue_success(self, linear_client: LinearClient, mock_client: Mock) -> None:
+    def test_update_issue_success(
+        self, linear_client: LinearClient, mock_client: Mock
+    ) -> None:
         """Test successful issue update."""
         mock_response = Mock()
         mock_response.json.return_value = {
@@ -195,18 +226,20 @@ class TestLinearClient:
         result = linear_client.update_issue("issue-123", update_input)
         assert result["identifier"] == "ENG-123"
 
-    def test_request_with_api_error(self, linear_client: LinearClient, mock_client: Mock) -> None:
+    def test_request_with_api_error(
+        self, linear_client: LinearClient, mock_client: Mock
+    ) -> None:
         """Test handling of API errors."""
         mock_response = Mock()
-        mock_response.json.return_value = {
-            "errors": [{"message": "Invalid API token"}]
-        }
+        mock_response.json.return_value = {"errors": [{"message": "Invalid API token"}]}
         mock_client.post.return_value = mock_response
 
         with pytest.raises(LinearApiError, match="Invalid API token"):
             linear_client._request("query { viewer { id } }", {})
 
-    def test_request_http_error(self, linear_client: LinearClient, mock_client: Mock) -> None:
+    def test_request_http_error(
+        self, linear_client: LinearClient, mock_client: Mock
+    ) -> None:
         """Test handling of HTTP errors."""
         mock_client.post.side_effect = httpx.HTTPError("Network error")
 
