@@ -17,6 +17,7 @@ class SyncConfig:
 
     manifest_path: Path
     dry_run: bool = False
+    mark_done: bool = False
 
 
 @dataclass
@@ -44,6 +45,7 @@ class IssueSpec:
     labels: list[str]
     assignee_email: str | None
     priority: int | None
+    complete: bool
     branch: str | None = None
     worktree: str | None = None
 
@@ -62,7 +64,7 @@ class LinearApiError(RuntimeError):
 def run_sync(config: SyncConfig) -> None:
     """Execute a sync according to the provided configuration."""
 
-    manifest = _load_manifest(config.manifest_path)
+    manifest = load_manifest(config.manifest_path)
     token = os.environ.get("LINEAR_API_KEY")
     if not token:
         raise RuntimeError(
@@ -113,6 +115,8 @@ def _process_issue(
             update_input["assigneeId"] = context.resolve_member_id(spec.assignee_email)
         if spec.state:
             update_input["stateId"] = context.resolve_state_id(spec.state)
+        if spec.complete and config.mark_done:
+            update_input["stateId"] = context.done_state_id
 
         if config.dry_run:
             print(
@@ -121,6 +125,11 @@ def _process_issue(
         else:
             updated = client.update_issue(existing["id"], update_input)
             print(f"{descriptor}: updated {updated['identifier']} ({updated['url']}).")
+
+        if spec.complete and not config.mark_done:
+            print(
+                f"{descriptor}: complete=true but --mark-done not set; leaving issue open."
+            )
         return
 
     create_input: dict[str, Any] = {
@@ -134,8 +143,13 @@ def _process_issue(
         create_input["labelIds"] = context.resolve_label_ids(spec.labels)
     if spec.assignee_email:
         create_input["assigneeId"] = context.resolve_member_id(spec.assignee_email)
-    if spec.state:
-        create_input["stateId"] = context.resolve_state_id(spec.state)
+    desired_state_id = None
+    if spec.complete and config.mark_done:
+        desired_state_id = context.done_state_id
+    elif spec.state:
+        desired_state_id = context.resolve_state_id(spec.state)
+    if desired_state_id:
+        create_input["stateId"] = desired_state_id
 
     if config.dry_run:
         print(f"{descriptor}: DRY RUN would create new issue.")
@@ -145,7 +159,7 @@ def _process_issue(
     print(f"{descriptor}: created {created['identifier']} ({created['url']}).")
 
 
-def _load_manifest(path: Path) -> Manifest:
+def load_manifest(path: Path) -> Manifest:
     if not path.exists():
         raise RuntimeError(f"Manifest path {path} does not exist.")
     if path.is_dir():
@@ -172,6 +186,10 @@ def _load_manifest(path: Path) -> Manifest:
     return Manifest(issues=issues)
 
 
+# Backwards compatibility for callers that may still import the private name.
+_load_manifest = load_manifest
+
+
 def _parse_defaults(data: Any) -> ManifestDefaults:
     if not data:
         return ManifestDefaults()
@@ -182,7 +200,7 @@ def _parse_defaults(data: Any) -> ManifestDefaults:
         raise RuntimeError("'defaults.labels' must be a list of strings.")
     return ManifestDefaults(
         team_key=_optional_str(data.get("team_key")),
-        state=_optional_str(data.get("state")),
+        state=_optional_str(data.get("status") or data.get("state")),
         labels=[_require_str(label, "'defaults.labels' entries") for label in labels],
         assignee_email=_optional_str(
             data.get("assignee_email") or data.get("assignee")
@@ -200,11 +218,7 @@ def _parse_issue(data: Any, defaults: ManifestDefaults, index: int) -> IssueSpec
     title = _require_str(data.get("title"), f"Issue #{index}: 'title' is required.")
     description = _optional_str(data.get("description")) or ""
     identifier = _optional_str(data.get("identifier") or data.get("id"))
-
-    # Support both 'state' and 'status' (synonyms for Linear workflow state)
-    # status takes precedence over state if both are provided
     state = _optional_str(data.get("status") or data.get("state")) or defaults.state
-
     team_key = _optional_str(data.get("team_key")) or defaults.team_key
     if not team_key:
         raise RuntimeError(
@@ -230,6 +244,8 @@ def _parse_issue(data: Any, defaults: ManifestDefaults, index: int) -> IssueSpec
     if priority is None:
         priority = defaults.priority
 
+    complete_raw = data.get("complete")
+    complete = bool(complete_raw) if complete_raw is not None else False
     branch = _optional_str(data.get("branch")) or defaults.branch
     worktree = _optional_str(data.get("worktree")) or defaults.worktree
 
@@ -242,6 +258,7 @@ def _parse_issue(data: Any, defaults: ManifestDefaults, index: int) -> IssueSpec
         labels=labels,
         assignee_email=assignee_email,
         priority=priority,
+        complete=complete,
         branch=branch,
         worktree=worktree,
     )
