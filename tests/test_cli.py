@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import tempfile
 from pathlib import Path
-from typing import Any
 from unittest.mock import Mock, patch
 
 import pytest
@@ -38,7 +37,6 @@ class TestCliParser:
         args = parser.parse_args(["sync", "manifests/"])
         assert args.command == "sync"
         assert args.path == Path("manifests/")
-
 
 
 class TestCliMain:
@@ -96,7 +94,6 @@ class TestCliMain:
             result = main(["sync", tmpdir])
             assert result == 1
             assert mock_run_sync.call_count == 2
-
 
     def test_main_no_arguments(self) -> None:
         """Test main with no arguments."""

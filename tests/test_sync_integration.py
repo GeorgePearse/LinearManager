@@ -5,7 +5,6 @@ from __future__ import annotations
 import os
 import tempfile
 from pathlib import Path
-from typing import Any
 from unittest.mock import Mock, patch
 
 import pytest
@@ -57,7 +56,10 @@ class TestSyncWorkflow:
             old_key = os.environ.pop("LINEAR_API_KEY", None)
             try:
                 config = SyncConfig(manifest_path=path)
-                with pytest.raises(RuntimeError, match="LINEAR_API_KEY environment variable is required"):
+                with pytest.raises(
+                    RuntimeError,
+                    match="LINEAR_API_KEY environment variable is required",
+                ):
                     run_sync(config)
             finally:
                 if old_key:

@@ -48,7 +48,9 @@ class TestTeamContext:
         result = team_context.resolve_label_ids(["Bug", "Feature"])
         assert result == ["label-1", "label-2"]
 
-    def test_resolve_label_ids_case_insensitive(self, team_context: TeamContext) -> None:
+    def test_resolve_label_ids_case_insensitive(
+        self, team_context: TeamContext
+    ) -> None:
         """Test label resolution is case-insensitive."""
         result = team_context.resolve_label_ids(["bug", "FEATURE"])
         assert result == ["label-1", "label-2"]
