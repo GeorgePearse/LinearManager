@@ -1,0 +1,21 @@
+defaults:
+  team_key: ENG
+  state: Backlog
+  priority: 2
+
+issues:
+  - identifier: ENG-486
+    title: Test sync from CLI - UPDATED
+    description: |
+      This is a test issue created via the linear-manager CLI tool.
+      Testing basic YAML to Linear synchronization.
+
+      This description has been updated to verify update functionality!
+    priority: 1
+
+  - identifier: ENG-487
+    title: Verify update functionality - UPDATED
+    description: |
+      Testing that the CLI can properly update existing issues.
+      This description was updated on the second run.
+    state: Todo
