@@ -28,6 +28,8 @@ class ManifestDefaults:
     labels: list[str] = field(default_factory=list)
     assignee_email: str | None = None
     priority: int | None = None
+    branch: str | None = None
+    worktree: str | None = None
 
 
 @dataclass
@@ -42,6 +44,8 @@ class IssueSpec:
     labels: list[str]
     assignee_email: str | None
     priority: int | None
+    branch: str | None = None
+    worktree: str | None = None
 
 
 @dataclass
@@ -79,6 +83,14 @@ def _process_issue(
     client: "LinearClient", context: "TeamContext", spec: IssueSpec, config: SyncConfig
 ) -> None:
     descriptor = f"[{context.key}] {spec.title}"
+
+    context_notes: list[str] = []
+    if spec.branch:
+        context_notes.append(f"branch={spec.branch}")
+    if spec.worktree:
+        context_notes.append(f"worktree={spec.worktree}")
+    if context_notes:
+        print(f"{descriptor}: context -> {', '.join(context_notes)}")
 
     existing = None
     if spec.identifier:
@@ -176,6 +188,8 @@ def _parse_defaults(data: Any) -> ManifestDefaults:
             data.get("assignee_email") or data.get("assignee")
         ),
         priority=_optional_int(data.get("priority")),
+        branch=_optional_str(data.get("branch")),
+        worktree=_optional_str(data.get("worktree")),
     )
 
 
@@ -216,6 +230,9 @@ def _parse_issue(data: Any, defaults: ManifestDefaults, index: int) -> IssueSpec
     if priority is None:
         priority = defaults.priority
 
+    branch = _optional_str(data.get("branch")) or defaults.branch
+    worktree = _optional_str(data.get("worktree")) or defaults.worktree
+
     return IssueSpec(
         title=title,
         description=description,
@@ -225,6 +242,8 @@ def _parse_issue(data: Any, defaults: ManifestDefaults, index: int) -> IssueSpec
         labels=labels,
         assignee_email=assignee_email,
         priority=priority,
+        branch=branch,
+        worktree=worktree,
     )
 
 
