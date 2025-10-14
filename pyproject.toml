@@ -24,7 +24,7 @@ classifiers = [
 ]
 
 [project.scripts]
-linear-manager = "linear_manager.cli:main"
+manager = "linear_manager.cli:main"
 
 [tool.uv]
 package = true
