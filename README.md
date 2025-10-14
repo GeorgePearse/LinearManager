@@ -29,6 +29,8 @@ issues:
     labels: ["Infra", "Automation"]
     assignee_email: engineer@example.com
     complete: true
+    branch: feature/webhook-retries
+    worktree: ../worktrees/webhook-retries
 ```
 
 Or update an existing issue by specifying its identifier:
@@ -51,6 +53,7 @@ Key fields:
 - `identifier` is optional; when present the CLI updates the existing issue instead of creating a new one
 - `state` or `status` (synonyms) set the Linear workflow state (e.g., "Todo", "In Progress", "Done")
 - `labels`, `assignee_email`, `state`, and `priority` can be set at defaults level or per-issue
+- `branch` and `worktree` are optional helpers for tracking local development context so you can jump back into the work quickly later
 
 ## Setting Issue Status
 
