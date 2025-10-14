@@ -42,9 +42,9 @@ issues:
 ## Syncing
 
 ```bash
-linear-manager path/to/issues.yaml            # apply changes
-linear-manager path/to/issues.yaml --dry-run  # preview without touching Linear
-linear-manager path/to/issues.yaml --mark-done
+manager path/to/issues.yaml            # apply changes
+manager path/to/issues.yaml --dry-run  # preview without touching Linear
+manager path/to/issues.yaml --mark-done
 ```
 
 The tool syncs YAML → Linear only; it never pulls changes back into the manifest.
