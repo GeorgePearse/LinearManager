@@ -42,7 +42,9 @@ def main() -> int:
     """Run introspection query and extract IssueCreateInput and IssueUpdateInput definitions."""
     token = os.environ.get("LINEAR_API_KEY")
     if not token:
-        print("ERROR: LINEAR_API_KEY environment variable is required.", file=sys.stderr)
+        print(
+            "ERROR: LINEAR_API_KEY environment variable is required.", file=sys.stderr
+        )
         return 1
 
     print("Querying Linear GraphQL API for schema introspection...")
@@ -137,7 +139,7 @@ def print_input_type(type_def: dict) -> None:
         print("\nREQUIRED FIELDS:")
         for field in required_fields:
             print(f"  - {field['name']}: {field['type']}")
-            if field['description']:
+            if field["description"]:
                 print(f"    {field['description']}")
     else:
         print("\nREQUIRED FIELDS: (none)")
@@ -146,7 +148,7 @@ def print_input_type(type_def: dict) -> None:
         print("\nOPTIONAL FIELDS:")
         for field in optional_fields:
             print(f"  - {field['name']}: {field['type']}")
-            if field['description']:
+            if field["description"]:
                 print(f"    {field['description']}")
 
 
@@ -155,8 +157,10 @@ def is_non_null_type(type_info: dict) -> bool:
     return type_info.get("kind") == "NON_NULL"
 
 
-def format_type(type_info: dict) -> str:
+def format_type(type_info: dict | None) -> str:
     """Format a GraphQL type for display."""
+    if type_info is None:
+        return "Unknown"
     kind = type_info.get("kind", "")
     name = type_info.get("name", "")
     of_type = type_info.get("ofType")
