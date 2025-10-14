@@ -29,6 +29,8 @@ class ManifestDefaults:
     labels: list[str] = field(default_factory=list)
     assignee_email: str | None = None
     priority: int | None = None
+    branch: str | None = None
+    worktree: str | None = None
 
 
 @dataclass
@@ -44,6 +46,8 @@ class IssueSpec:
     assignee_email: str | None
     priority: int | None
     complete: bool
+    branch: str | None = None
+    worktree: str | None = None
 
 
 @dataclass
@@ -60,7 +64,7 @@ class LinearApiError(RuntimeError):
 def run_sync(config: SyncConfig) -> None:
     """Execute a sync according to the provided configuration."""
 
-    manifest = _load_manifest(config.manifest_path)
+    manifest = load_manifest(config.manifest_path)
     token = os.environ.get("LINEAR_API_KEY")
     if not token:
         raise RuntimeError("LINEAR_API_KEY environment variable is required to sync with Linear.")
@@ -137,7 +141,7 @@ def _process_issue(client: "LinearClient", context: "TeamContext", spec: IssueSp
     print(f"{descriptor}: created {created['identifier']} ({created['url']}).")
 
 
-def _load_manifest(path: Path) -> Manifest:
+def load_manifest(path: Path) -> Manifest:
     if not path.exists():
         raise RuntimeError(f"Manifest path {path} does not exist.")
     if path.is_dir():
@@ -155,8 +159,14 @@ def _load_manifest(path: Path) -> Manifest:
         raise RuntimeError("'issues' must be a list.")
 
     defaults = _parse_defaults(raw.get("defaults", {}))
-    issues = [_parse_issue(item, defaults, index) for index, item in enumerate(issues_raw, start=1)]
+    issues = [
+        _parse_issue(item, defaults, index) for index, item in enumerate(issues_raw, start=1)
+    ]
     return Manifest(issues=issues)
+
+
+# Backwards compatibility for callers that may still import the private name.
+_load_manifest = load_manifest
 
 
 def _parse_defaults(data: Any) -> ManifestDefaults:
@@ -169,10 +179,12 @@ def _parse_defaults(data: Any) -> ManifestDefaults:
         raise RuntimeError("'defaults.labels' must be a list of strings.")
     return ManifestDefaults(
         team_key=_optional_str(data.get("team_key")),
-        state=_optional_str(data.get("state")),
+        state=_optional_str(data.get("status") or data.get("state")),
         labels=[_require_str(label, "'defaults.labels' entries") for label in labels],
         assignee_email=_optional_str(data.get("assignee_email") or data.get("assignee")),
         priority=_optional_int(data.get("priority")),
+        branch=_optional_str(data.get("branch")),
+        worktree=_optional_str(data.get("worktree")),
     )
 
 
@@ -183,7 +195,7 @@ def _parse_issue(data: Any, defaults: ManifestDefaults, index: int) -> IssueSpec
     title = _require_str(data.get("title"), f"Issue #{index}: 'title' is required.")
     description = _optional_str(data.get("description")) or ""
     identifier = _optional_str(data.get("identifier") or data.get("id"))
-    state = _optional_str(data.get("state")) or defaults.state
+    state = _optional_str(data.get("status") or data.get("state")) or defaults.state
     team_key = _optional_str(data.get("team_key")) or defaults.team_key
     if not team_key:
         raise RuntimeError(f"Issue #{index}: 'team_key' missing and no default provided.")
@@ -205,6 +217,8 @@ def _parse_issue(data: Any, defaults: ManifestDefaults, index: int) -> IssueSpec
 
     complete_raw = data.get("complete")
     complete = bool(complete_raw) if complete_raw is not None else False
+    branch = _optional_str(data.get("branch")) or defaults.branch
+    worktree = _optional_str(data.get("worktree")) or defaults.worktree
 
     return IssueSpec(
         title=title,
@@ -216,6 +230,8 @@ def _parse_issue(data: Any, defaults: ManifestDefaults, index: int) -> IssueSpec
         assignee_email=assignee_email,
         priority=priority,
         complete=complete,
+        branch=branch,
+        worktree=worktree,
     )
 
 
