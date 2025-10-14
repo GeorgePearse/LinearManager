@@ -295,7 +295,11 @@ class TestIssueParsing:
     def test_parse_issue_status_overrides_state(self) -> None:
         """Test that 'status' takes precedence when both are provided."""
         defaults = ManifestDefaults(team_key="ENG")
-        data: dict[str, str] = {"title": "Test Issue", "state": "Todo", "status": "Done"}
+        data: dict[str, str] = {
+            "title": "Test Issue",
+            "state": "Todo",
+            "status": "Done",
+        }
         issue = _parse_issue(data, defaults, 1)
         assert issue.state == "Done"
 

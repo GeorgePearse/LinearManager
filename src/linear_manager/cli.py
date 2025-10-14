@@ -48,8 +48,7 @@ def _format_status(issue: IssueSpec) -> str:
 
 def _table_lines(headers: list[str], rows: Iterable[list[str]]) -> list[str]:
     split_rows = [
-        [cell.splitlines() or [""] for cell in row]
-        for row in ([headers] + list(rows))
+        [cell.splitlines() or [""] for cell in row] for row in ([headers] + list(rows))
     ]
     column_count = len(headers)
     widths: list[int] = [0] * column_count

@@ -113,4 +113,3 @@ class TestCliMain:
             assert call_args.dry_run is True
         finally:
             path.unlink()
-
