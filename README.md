@@ -101,6 +101,8 @@ manager sync . --dry-run
 
 The tool syncs YAML → Linear only; it never pulls changes back into the manifest.
 
+> **Note**: We plan to integrate with [par](https://github.com/your-username/par) for enhanced parallel processing and workflow automation.
+
 ### Legacy mode
 
 The old single-file syntax still works for backwards compatibility:
