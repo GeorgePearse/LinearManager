@@ -21,15 +21,13 @@ class TestCliParser:
         assert args.command == "sync"
         assert args.path == Path("issues.yaml")
         assert args.dry_run is False
-        assert args.mark_done is False
 
     def test_parser_sync_subcommand_with_flags(self) -> None:
         """Test parsing sync subcommand with flags."""
         parser = build_parser()
-        args = parser.parse_args(["sync", "issues.yaml", "--dry-run", "--mark-done"])
+        args = parser.parse_args(["sync", "issues.yaml", "--dry-run"])
         assert args.command == "sync"
         assert args.dry_run is True
-        assert args.mark_done is True
 
     def test_parser_sync_subcommand_directory(self) -> None:
         """Test parsing sync subcommand with directory."""
@@ -113,21 +111,5 @@ class TestCliMain:
             assert result == 0
             call_args = mock_run_sync.call_args[0][0]
             assert call_args.dry_run is True
-        finally:
-            path.unlink()
-
-    @patch("linear_manager.cli.run_sync")
-    def test_main_with_mark_done(self, mock_run_sync: Mock) -> None:
-        """Test main with mark-done flag."""
-        with tempfile.NamedTemporaryFile(suffix=".yaml", delete=False) as f:
-            f.write(b"defaults:\n  team_key: ENG\nissues:\n  - title: Test\n")
-            f.flush()
-            path = Path(f.name)
-
-        try:
-            result = main(["sync", str(path), "--mark-done"])
-            assert result == 0
-            call_args = mock_run_sync.call_args[0][0]
-            assert call_args.mark_done is True
         finally:
             path.unlink()

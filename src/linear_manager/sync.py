@@ -86,6 +86,14 @@ def _process_issue(
 ) -> None:
     descriptor = f"[{context.key}] {spec.title}"
 
+    context_notes: list[str] = []
+    if spec.branch:
+        context_notes.append(f"branch={spec.branch}")
+    if spec.worktree:
+        context_notes.append(f"worktree={spec.worktree}")
+    if context_notes:
+        print(f"{descriptor}: context -> {', '.join(context_notes)}")
+
     existing = None
     if spec.identifier:
         existing = client.fetch_issue_by_identifier(spec.identifier)

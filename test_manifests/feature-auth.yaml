@@ -5,5 +5,5 @@ defaults:
 issues:
   - title: Implement OAuth2 authentication
     description: Add OAuth2 support for third-party integrations
-    state: Backlog
+    status: Done
     priority: 3

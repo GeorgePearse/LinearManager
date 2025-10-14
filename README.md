@@ -29,6 +29,8 @@ issues:
     labels: ["Infra", "Automation"]
     assignee_email: engineer@example.com
     complete: true
+    branch: feature/webhook-retries
+    worktree: ../worktrees/webhook-retries
 ```
 
 Or update an existing issue by specifying its identifier:
@@ -49,8 +51,37 @@ issues:
 Key fields:
 - `team_key` (required per issue) chooses the Linear team
 - `identifier` is optional; when present the CLI updates the existing issue instead of creating a new one
-- `complete: true` marks the issue done when you pass `--mark-done`
+- `state` or `status` (synonyms) set the Linear workflow state (e.g., "Todo", "In Progress", "Done")
 - `labels`, `assignee_email`, `state`, and `priority` can be set at defaults level or per-issue
+- `branch` and `worktree` are optional helpers for tracking local development context so you can jump back into the work quickly later
+
+## Setting Issue Status
+
+Use `state` or `status` to set the workflow state in Linear (they're synonyms):
+
+```yaml
+defaults:
+  team_key: ENG
+
+issues:
+  - identifier: ENG-123
+    title: Fix critical bug
+    description: Bug has been resolved
+    status: Done  # Sets the issue to "Done" state in Linear
+```
+
+Or using `state`:
+
+```yaml
+defaults:
+  team_key: ENG
+
+issues:
+  - identifier: ENG-124
+    title: Work in progress
+    description: Currently implementing
+    state: In Progress  # Sets the issue to "In Progress" state
+```
 
 ## Syncing
 
@@ -66,12 +97,11 @@ manager sync path/to/issues.yaml
 
 # Preview changes without syncing
 manager sync . --dry-run
-
-# Mark completed issues as done
-manager sync . --mark-done
 ```
 
 The tool syncs YAML → Linear only; it never pulls changes back into the manifest.
+
+> **Note**: We plan to integrate with [par](https://github.com/your-username/par) for enhanced parallel processing and workflow automation.
 
 ### Legacy mode
 

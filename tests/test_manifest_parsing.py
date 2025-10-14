@@ -112,6 +112,8 @@ class TestDefaultsParsing:
         assert defaults.labels == []
         assert defaults.assignee_email is None
         assert defaults.priority is None
+        assert defaults.branch is None
+        assert defaults.worktree is None
 
     def test_parse_full_defaults(self) -> None:
         """Test parsing complete defaults."""
@@ -121,6 +123,8 @@ class TestDefaultsParsing:
             "labels": ["Bug", "Frontend"],
             "assignee_email": "dev@example.com",
             "priority": 3,
+            "branch": "feature/test",
+            "worktree": "/repos/feature-test",
         }
         defaults = _parse_defaults(data)
         assert defaults.team_key == "ENG"
@@ -128,6 +132,8 @@ class TestDefaultsParsing:
         assert defaults.labels == ["Bug", "Frontend"]
         assert defaults.assignee_email == "dev@example.com"
         assert defaults.priority == 3
+        assert defaults.branch == "feature/test"
+        assert defaults.worktree == "/repos/feature-test"
 
     def test_parse_defaults_with_assignee_alias(self) -> None:
         """Test that 'assignee' is accepted as alias for 'assignee_email'."""
@@ -157,7 +163,8 @@ class TestIssueParsing:
         assert issue.labels == []
         assert issue.assignee_email is None
         assert issue.priority is None
-        assert issue.complete is False
+        assert issue.branch is None
+        assert issue.worktree is None
 
     def test_parse_full_issue(self) -> None:
         """Test parsing an issue with all fields."""
@@ -171,7 +178,8 @@ class TestIssueParsing:
             "labels": ["Bug", "Frontend"],
             "assignee_email": "dev@example.com",
             "priority": 2,
-            "complete": True,
+            "branch": "feature/test",
+            "worktree": "/repos/feature-test",
         }
         issue = _parse_issue(data, defaults, 1)
         assert issue.title == "Test Issue"
@@ -182,7 +190,8 @@ class TestIssueParsing:
         assert issue.labels == ["Bug", "Frontend"]
         assert issue.assignee_email == "dev@example.com"
         assert issue.priority == 2
-        assert issue.complete is True
+        assert issue.branch == "feature/test"
+        assert issue.worktree == "/repos/feature-test"
 
     def test_parse_issue_with_defaults(self) -> None:
         """Test that issue inherits from defaults."""
@@ -191,6 +200,8 @@ class TestIssueParsing:
             state="Backlog",
             labels=["Automation"],
             priority=1,
+            branch="feature/base",
+            worktree="/repos/base",
         )
         data = {"title": "Test Issue"}
         issue = _parse_issue(data, defaults, 1)
@@ -198,6 +209,8 @@ class TestIssueParsing:
         assert issue.state == "Backlog"
         assert issue.labels == ["Automation"]
         assert issue.priority == 1
+        assert issue.branch == "feature/base"
+        assert issue.worktree == "/repos/base"
 
     def test_parse_issue_overrides_defaults(self) -> None:
         """Test that issue fields override defaults."""
@@ -206,6 +219,8 @@ class TestIssueParsing:
             state="Backlog",
             labels=["Automation"],
             priority=1,
+            branch="feature/base",
+            worktree="/repos/base",
         )
         data = {
             "title": "Test Issue",
@@ -213,12 +228,16 @@ class TestIssueParsing:
             "state": "Todo",
             "labels": ["Bug"],
             "priority": 3,
+            "branch": "feature/override",
+            "worktree": "/repos/override",
         }
         issue = _parse_issue(data, defaults, 1)
         assert issue.team_key == "PROD"
         assert issue.state == "Todo"
         assert set(issue.labels) == {"Automation", "Bug"}
         assert issue.priority == 3
+        assert issue.branch == "feature/override"
+        assert issue.worktree == "/repos/override"
 
     def test_parse_issue_missing_team_key(self) -> None:
         """Test parsing issue without team_key fails."""
@@ -265,6 +284,24 @@ class TestIssueParsing:
         assert "bug" not in issue.labels
         assert "Frontend" in issue.labels
         assert "Backend" in issue.labels
+
+    def test_parse_issue_with_status_alias(self) -> None:
+        """Test that 'status' is accepted as alias for 'state'."""
+        defaults = ManifestDefaults(team_key="ENG")
+        data: dict[str, str] = {"title": "Test Issue", "status": "Done"}
+        issue = _parse_issue(data, defaults, 1)
+        assert issue.state == "Done"
+
+    def test_parse_issue_status_overrides_state(self) -> None:
+        """Test that 'status' takes precedence when both are provided."""
+        defaults = ManifestDefaults(team_key="ENG")
+        data: dict[str, str] = {
+            "title": "Test Issue",
+            "state": "Todo",
+            "status": "Done",
+        }
+        issue = _parse_issue(data, defaults, 1)
+        assert issue.state == "Done"
 
 
 class TestHelperFunctions:
