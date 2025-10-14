@@ -228,64 +228,6 @@ class TestSyncWorkflow:
 
         mock_linear_client.update_issue.assert_not_called()
 
-    def test_process_issue_mark_done(
-        self, team_context: TeamContext, mock_linear_client: Mock
-    ) -> None:
-        """Test marking issues as done with mark_done flag."""
-        spec = IssueSpec(
-            title="Test Issue",
-            description="Test description",
-            team_key="ENG",
-            identifier=None,
-            state=None,
-            labels=[],
-            assignee_email=None,
-            priority=None,
-            complete=True,
-        )
-
-        mock_linear_client.fetch_issue_by_identifier.return_value = None
-        mock_linear_client.create_issue.return_value = {
-            "id": "issue-123",
-            "identifier": "ENG-123",
-            "url": "https://linear.app/issue/ENG-123",
-        }
-
-        config = SyncConfig(manifest_path=Path("test.yaml"), mark_done=True)
-        _process_issue(mock_linear_client, team_context, spec, config)
-
-        call_args = mock_linear_client.create_issue.call_args[0][0]
-        assert call_args["stateId"] == "state-3"  # done state
-
-    def test_process_issue_complete_without_mark_done(
-        self, team_context: TeamContext, mock_linear_client: Mock
-    ) -> None:
-        """Test complete=true without mark_done doesn't mark done."""
-        spec = IssueSpec(
-            title="Test Issue",
-            description="Test description",
-            team_key="ENG",
-            identifier=None,
-            state="Backlog",
-            labels=[],
-            assignee_email=None,
-            priority=None,
-            complete=True,
-        )
-
-        mock_linear_client.fetch_issue_by_identifier.return_value = None
-        mock_linear_client.create_issue.return_value = {
-            "id": "issue-123",
-            "identifier": "ENG-123",
-            "url": "https://linear.app/issue/ENG-123",
-        }
-
-        config = SyncConfig(manifest_path=Path("test.yaml"), mark_done=False)
-        _process_issue(mock_linear_client, team_context, spec, config)
-
-        call_args = mock_linear_client.create_issue.call_args[0][0]
-        assert call_args["stateId"] == "state-1"  # backlog state, not done
-
     def test_process_issue_with_labels(
         self, team_context: TeamContext, mock_linear_client: Mock
     ) -> None:

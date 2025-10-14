@@ -48,8 +48,7 @@ def _format_status(issue: IssueSpec) -> str:
 
 def _table_lines(headers: list[str], rows: Iterable[list[str]]) -> list[str]:
     split_rows = [
-        [cell.splitlines() or [""] for cell in row]
-        for row in ([headers] + list(rows))
+        [cell.splitlines() or [""] for cell in row] for row in ([headers] + list(rows))
     ]
     column_count = len(headers)
     widths: list[int] = [0] * column_count
@@ -137,11 +136,6 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Validate manifests without writing to Linear.",
     )
-    sync_parser.add_argument(
-        "--mark-done",
-        action="store_true",
-        help="Mark issues flagged as complete in manifests as done in Linear.",
-    )
 
     list_parser = subparsers.add_parser(
         "list",
@@ -166,11 +160,6 @@ def build_parser() -> argparse.ArgumentParser:
         "--dry-run",
         action="store_true",
         help="Validate manifest without writing to Linear.",
-    )
-    parser.add_argument(
-        "--mark-done",
-        action="store_true",
-        help="Mark issues flagged as complete in the manifest as done in Linear.",
     )
     return parser
 
@@ -200,7 +189,6 @@ def main(argv: list[str] | None = None) -> int:
                 config = SyncConfig(
                     manifest_path=yaml_file,
                     dry_run=args.dry_run,
-                    mark_done=args.mark_done,
                 )
                 try:
                     run_sync(config)
@@ -220,7 +208,6 @@ def main(argv: list[str] | None = None) -> int:
             config = SyncConfig(
                 manifest_path=path,
                 dry_run=args.dry_run,
-                mark_done=args.mark_done,
             )
     elif args.command == "list":
         try:
@@ -237,7 +224,6 @@ def main(argv: list[str] | None = None) -> int:
         config = SyncConfig(
             manifest_path=args.manifest,
             dry_run=args.dry_run,
-            mark_done=args.mark_done,
         )
 
     try:

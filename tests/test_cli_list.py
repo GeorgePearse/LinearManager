@@ -14,7 +14,9 @@ def _write_manifest(path: Path, content: str) -> None:
     path.write_text(dedent(content).strip() + "\n", encoding="utf-8")
 
 
-def test_list_outputs_table_for_manifest(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_list_outputs_table_for_manifest(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     manifest = tmp_path / "issues.yaml"
     _write_manifest(
         manifest,
