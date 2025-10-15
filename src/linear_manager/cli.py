@@ -3,11 +3,31 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
+from datetime import datetime
 from pathlib import Path
-from typing import Iterable
+from typing import Any, Iterable
+
+import yaml
+from colorama import Fore, Style, init
 
 from linear_manager.sync import IssueSpec, SyncConfig, load_manifest, run_sync
+
+# Initialize colorama
+init(autoreset=True)
+
+
+def _get_tasks_directory() -> Path:
+    """Get the tasks directory for LinearManager.
+
+    Uses LINEAR_MANAGER_HOME environment variable if set,
+    otherwise defaults to ~/LinearManager/tasks.
+    """
+    home = os.environ.get("LINEAR_MANAGER_HOME")
+    if home:
+        return Path(home) / "tasks"
+    return Path.home() / "LinearManager" / "tasks"
 
 
 def _discover_manifest_files(path: Path) -> list[Path]:
@@ -46,36 +66,97 @@ def _format_status(issue: IssueSpec) -> str:
     return ", ".join(parts)
 
 
+def _wrap_text(text: str, max_width: int) -> list[str]:
+    """Wrap text to fit within max_width, breaking on word boundaries."""
+    if not text:
+        return [""]
+
+    words = text.split()
+    lines: list[str] = []
+    current_line: list[str] = []
+    current_length = 0
+
+    for word in words:
+        word_length = len(word)
+        # Account for space before word (except for first word on line)
+        needed_length = word_length + (1 if current_line else 0)
+
+        if current_length + needed_length <= max_width:
+            current_line.append(word)
+            current_length += needed_length
+        else:
+            # Start new line
+            if current_line:
+                lines.append(" ".join(current_line))
+            # Handle words longer than max_width by breaking them
+            if word_length > max_width:
+                for i in range(0, len(word), max_width):
+                    lines.append(word[i : i + max_width])
+                current_line = []
+                current_length = 0
+            else:
+                current_line = [word]
+                current_length = word_length
+
+    if current_line:
+        lines.append(" ".join(current_line))
+
+    return lines if lines else [""]
+
+
 def _table_lines(headers: list[str], rows: Iterable[list[str]]) -> list[str]:
-    split_rows = [
-        [cell.splitlines() or [""] for cell in row] for row in ([headers] + list(rows))
-    ]
+    # Define maximum column widths (adjust these as needed)
+    max_column_widths = [30, 20, 40, 20]  # Title, Worktree, Branch Description, Status
+
+    # Wrap text in all cells and split into lines
+    split_rows: list[list[list[str]]] = []
+    for row in [headers] + list(rows):
+        wrapped_row: list[list[str]] = []
+        for idx, cell in enumerate(row):
+            max_width = max_column_widths[idx] if idx < len(max_column_widths) else 40
+            # First split on existing newlines, then wrap each line
+            cell_lines: list[str] = []
+            for line in cell.splitlines() or [""]:
+                cell_lines.extend(_wrap_text(line, max_width))
+            wrapped_row.append(cell_lines)
+        split_rows.append(wrapped_row)
+
     column_count = len(headers)
     widths: list[int] = [0] * column_count
-    for row in split_rows:
-        for idx, cell_lines in enumerate(row):
+    for row_cells in split_rows:
+        for idx, cell_lines in enumerate(row_cells):
             widths[idx] = max(
                 widths[idx],
                 *(len(line) for line in cell_lines),
             )
 
-    def build_rule(char: str) -> str:
-        return "+" + "+".join(char * (width + 2) for width in widths) + "+"
+    def build_rule(char: str, color: str = Fore.CYAN) -> str:
+        rule = "+" + "+".join(char * (width + 2) for width in widths) + "+"
+        return f"{color}{rule}{Style.RESET_ALL}"
 
-    def render_row(cell_lines: list[list[str]]) -> list[str]:
+    def render_row(cell_lines: list[list[str]], is_header: bool = False) -> list[str]:
         height = max(len(lines) for lines in cell_lines)
         rendered: list[str] = []
         for line_idx in range(height):
             parts: list[str] = []
             for col_idx, lines in enumerate(cell_lines):
                 text = lines[line_idx] if line_idx < len(lines) else ""
-                parts.append(text.ljust(widths[col_idx]))
-            rendered.append("| " + " | ".join(parts) + " |")
+                if is_header:
+                    parts.append(
+                        f"{Fore.YELLOW}{Style.BRIGHT}{text.ljust(widths[col_idx])}{Style.RESET_ALL}"
+                    )
+                else:
+                    parts.append(text.ljust(widths[col_idx]))
+            rendered.append(
+                f"{Fore.CYAN}|{Style.RESET_ALL} "
+                + f" {Fore.CYAN}|{Style.RESET_ALL} ".join(parts)
+                + f" {Fore.CYAN}|{Style.RESET_ALL}"
+            )
         return rendered
 
     all_lines: list[str] = [build_rule("-")]
-    all_lines.extend(render_row(split_rows[0]))
-    all_lines.append(build_rule("="))
+    all_lines.extend(render_row(split_rows[0], is_header=True))
+    all_lines.append(build_rule("=", Fore.CYAN))
     for row_cells in split_rows[1:]:
         all_lines.extend(render_row(row_cells))
     all_lines.append(build_rule("-"))
@@ -114,6 +195,54 @@ def run_list(path: Path) -> int:
     return 0
 
 
+def run_add(
+    title: str,
+    description: str | None,
+    team_key: str,
+    priority: int | None,
+    assignee: str | None,
+    labels: list[str] | None,
+) -> int:
+    """Add a new ticket to the tasks directory."""
+    tasks_dir = _get_tasks_directory()
+
+    # Ensure tasks directory exists
+    tasks_dir.mkdir(parents=True, exist_ok=True)
+
+    # Create a timestamped filename
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"{timestamp}_{title.lower().replace(' ', '_')[:30]}.yaml"
+    filepath = tasks_dir / filename
+
+    # Build the issue data
+    issue_dict: dict[str, Any] = {
+        "title": title,
+        "description": description or "",
+        "team_key": team_key,
+    }
+
+    # Add optional fields if provided
+    if priority is not None:
+        issue_dict["priority"] = priority
+    if assignee:
+        issue_dict["assignee_email"] = assignee
+    if labels:
+        issue_dict["labels"] = labels
+
+    issue_data: dict[str, list[dict[str, Any]]] = {"issues": [issue_dict]}
+
+    # Write to file
+    with filepath.open("w", encoding="utf-8") as f:
+        yaml.safe_dump(issue_data, f, default_flow_style=False, sort_keys=False)
+
+    print(f"{Fore.GREEN}✓ Ticket created successfully:{Style.RESET_ALL}")
+    print(f"  {Fore.CYAN}File:{Style.RESET_ALL} {filepath}")
+    print(f"  {Fore.CYAN}Title:{Style.RESET_ALL} {title}")
+    print(f"  {Fore.CYAN}Team:{Style.RESET_ALL} {team_key}")
+
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="manager",
@@ -145,8 +274,52 @@ def build_parser() -> argparse.ArgumentParser:
         "path",
         type=Path,
         nargs="?",
-        default=Path("."),
-        help="Path to a manifest file or directory containing manifests (defaults to current directory).",
+        default=None,
+        help="Path to a manifest file or directory containing manifests (defaults to LinearManager/tasks).",
+    )
+
+    # add subcommand
+    add_parser = subparsers.add_parser(
+        "add",
+        help="Add a new ticket to the tasks directory.",
+    )
+    add_parser.add_argument(
+        "title",
+        type=str,
+        help="Title of the ticket",
+    )
+    add_parser.add_argument(
+        "--description",
+        "-d",
+        type=str,
+        help="Description of the ticket",
+    )
+    add_parser.add_argument(
+        "--team-key",
+        "-t",
+        type=str,
+        required=True,
+        help="Team key (e.g., ENG, PROD)",
+    )
+    add_parser.add_argument(
+        "--priority",
+        "-p",
+        type=int,
+        choices=[0, 1, 2, 3, 4],
+        help="Priority (0=None, 1=Low, 2=Medium, 3=High, 4=Urgent)",
+    )
+    add_parser.add_argument(
+        "--assignee",
+        "-a",
+        type=str,
+        help="Assignee email address",
+    )
+    add_parser.add_argument(
+        "--labels",
+        "-l",
+        type=str,
+        nargs="+",
+        help="Labels for the ticket",
     )
 
     # Legacy: direct file argument (for backwards compatibility)
@@ -211,7 +384,21 @@ def main(argv: list[str] | None = None) -> int:
             )
     elif args.command == "list":
         try:
-            return run_list(args.path)
+            path = args.path if args.path is not None else _get_tasks_directory()
+            return run_list(path)
+        except Exception as exc:  # pragma: no cover - top-level handler
+            parser.error(str(exc))
+            return 1
+    elif args.command == "add":
+        try:
+            return run_add(
+                title=args.title,
+                description=args.description,
+                team_key=args.team_key,
+                priority=args.priority,
+                assignee=args.assignee,
+                labels=args.labels,
+            )
         except Exception as exc:  # pragma: no cover - top-level handler
             parser.error(str(exc))
             return 1
