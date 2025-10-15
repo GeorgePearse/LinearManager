@@ -91,7 +91,7 @@ def _wrap_text(text: str, max_width: int) -> list[str]:
             # Handle words longer than max_width by breaking them
             if word_length > max_width:
                 for i in range(0, len(word), max_width):
-                    lines.append(word[i:i + max_width])
+                    lines.append(word[i : i + max_width])
                 current_line = []
                 current_length = 0
             else:
@@ -110,7 +110,7 @@ def _table_lines(headers: list[str], rows: Iterable[list[str]]) -> list[str]:
 
     # Wrap text in all cells and split into lines
     split_rows: list[list[list[str]]] = []
-    for row in ([headers] + list(rows)):
+    for row in [headers] + list(rows):
         wrapped_row: list[list[str]] = []
         for idx, cell in enumerate(row):
             max_width = max_column_widths[idx] if idx < len(max_column_widths) else 40
@@ -142,10 +142,16 @@ def _table_lines(headers: list[str], rows: Iterable[list[str]]) -> list[str]:
             for col_idx, lines in enumerate(cell_lines):
                 text = lines[line_idx] if line_idx < len(lines) else ""
                 if is_header:
-                    parts.append(f"{Fore.YELLOW}{Style.BRIGHT}{text.ljust(widths[col_idx])}{Style.RESET_ALL}")
+                    parts.append(
+                        f"{Fore.YELLOW}{Style.BRIGHT}{text.ljust(widths[col_idx])}{Style.RESET_ALL}"
+                    )
                 else:
                     parts.append(text.ljust(widths[col_idx]))
-            rendered.append(f"{Fore.CYAN}|{Style.RESET_ALL} " + f" {Fore.CYAN}|{Style.RESET_ALL} ".join(parts) + f" {Fore.CYAN}|{Style.RESET_ALL}")
+            rendered.append(
+                f"{Fore.CYAN}|{Style.RESET_ALL} "
+                + f" {Fore.CYAN}|{Style.RESET_ALL} ".join(parts)
+                + f" {Fore.CYAN}|{Style.RESET_ALL}"
+            )
         return rendered
 
     all_lines: list[str] = [build_rule("-")]
@@ -223,9 +229,7 @@ def run_add(
     if labels:
         issue_dict["labels"] = labels
 
-    issue_data: dict[str, list[dict[str, Any]]] = {
-        "issues": [issue_dict]
-    }
+    issue_data: dict[str, list[dict[str, Any]]] = {"issues": [issue_dict]}
 
     # Write to file
     with filepath.open("w", encoding="utf-8") as f:
