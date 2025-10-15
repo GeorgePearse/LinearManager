@@ -122,7 +122,7 @@ def _wrap_text(text: str, max_width: int) -> list[str]:
 
 def _table_lines(headers: list[str], rows: Iterable[list[str]]) -> list[str]:
     # Define maximum column widths (adjust these as needed)
-    max_column_widths = [30, 20, 40, 20]  # Title, Worktree, Branch Description, Status
+    max_column_widths = [30, 25, 25, 40, 20]  # Title, Branch, Worktree, Description, Status
 
     # Wrap text in all cells and split into lines
     split_rows: list[list[list[str]]] = []
@@ -181,10 +181,11 @@ def _table_lines(headers: list[str], rows: Iterable[list[str]]) -> list[str]:
 
 def _render_issue_table(issues: list[IssueSpec], verbose: bool = False) -> str:
     if verbose:
-        headers = ["Title", "Worktree", "Description", "Status"]
+        headers = ["Title", "Branch", "Worktree", "Description", "Status"]
         rows = [
             [
                 issue.title,
+                issue.branch or "",
                 issue.worktree or "",
                 (issue.description or "").strip().splitlines()[0]
                 if issue.description
@@ -194,10 +195,11 @@ def _render_issue_table(issues: list[IssueSpec], verbose: bool = False) -> str:
             for issue in issues
         ]
     else:
-        headers = ["Title", "Worktree", "Status"]
+        headers = ["Title", "Branch", "Worktree", "Status"]
         rows = [
             [
                 issue.title,
+                issue.branch or "",
                 issue.worktree or "",
                 _format_status(issue),
             ]
