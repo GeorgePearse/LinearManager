@@ -72,7 +72,9 @@ def _status_color(status: str) -> str:
 
 def _summarize_check_buckets(checks: list[dict[str, Any]], exit_code: int) -> str:
     """Determine an overall status from gh check buckets."""
-    buckets = {str(check.get("bucket")).lower() for check in checks if check.get("bucket")}
+    buckets = {
+        str(check.get("bucket")).lower() for check in checks if check.get("bucket")
+    }
     if "fail" in buckets:
         return "fail"
     if "pending" in buckets:
@@ -196,7 +198,9 @@ def _evaluate_issue_tests(issue: dict[str, Any], manifest_path: Path) -> dict[st
     worktree_raw = issue.get("worktree")
     if not worktree_raw:
         tests_entry["pass_or_fail"] = "missing_worktree"
-        tests_entry["failure_reason"] = f"No worktree path configured for branch '{branch}'."
+        tests_entry["failure_reason"] = (
+            f"No worktree path configured for branch '{branch}'."
+        )
         tests_entry["branch"] = branch
         return tests_entry
 
@@ -219,7 +223,9 @@ def _evaluate_issue_tests(issue: dict[str, Any], manifest_path: Path) -> dict[st
     return tests_entry
 
 
-def _process_manifest_for_tests(manifest_path: Path) -> list[tuple[str, dict[str, Any]]]:
+def _process_manifest_for_tests(
+    manifest_path: Path,
+) -> list[tuple[str, dict[str, Any]]]:
     """Process a single manifest file for test status updates."""
     raw = yaml.safe_load(manifest_path.read_text(encoding="utf-8")) or {}
     issues = raw.get("issues")
@@ -259,8 +265,13 @@ def run_check_tests(path: Path, max_workers: int = 4) -> int:
     errors = 0
     print(f"Running test checks for {len(manifest_files)} manifest file(s)...")
 
-    with ThreadPoolExecutor(max_workers=min(worker_count, len(manifest_files))) as executor:
-        futures = {executor.submit(_process_manifest_for_tests, manifest): manifest for manifest in manifest_files}
+    with ThreadPoolExecutor(
+        max_workers=min(worker_count, len(manifest_files))
+    ) as executor:
+        futures = {
+            executor.submit(_process_manifest_for_tests, manifest): manifest
+            for manifest in manifest_files
+        }
         for future in as_completed(futures):
             manifest = futures[future]
             try:
