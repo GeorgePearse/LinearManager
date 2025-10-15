@@ -43,9 +43,10 @@ def test_list_outputs_table_for_manifest(
     assert "Refactor login flow" in clean_out
     # Check for worktree path (may be wrapped)
     assert "worktrees/login" in clean_out
-    # Check for branch and description (may be wrapped)
+    # Check for branch (should be present by default)
     assert "feature/login-flow" in clean_out
-    assert "Improve login" in clean_out
+    # Description should NOT be present without --verbose
+    assert "Improve login" not in clean_out
     assert "In Progress" in clean_out
 
 
@@ -90,12 +91,49 @@ def test_list_uses_defaults_and_marks_complete(
     assert "Common refactor" in clean_out
     # Check for worktree path (may be wrapped)
     assert "worktrees/common" in clean_out
-    # Check for branch and description (may be wrapped)
+    # Check for branch (should be present by default)
     assert "feature/common" in clean_out
-    assert "Update shared helpers" in clean_out
+    # Description should NOT be present without --verbose
+    assert "Update shared helpers" not in clean_out
+    assert "Improve API messaging" not in clean_out
     # complete flag should surface in status column
     assert "☑" in clean_out
     assert "Review" in clean_out
+
+
+def test_list_verbose_shows_descriptions(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    manifest = tmp_path / "issues.yaml"
+    _write_manifest(
+        manifest,
+        """
+        defaults:
+          team_key: ENG
+
+        issues:
+          - title: Refactor login flow
+            description: Improve login sequence for oauth integrations
+            branch: feature/login-flow
+            worktree: ../worktrees/login-flow
+            status: In Progress
+        """,
+    )
+
+    result = main(["list", str(manifest), "--verbose"])
+
+    assert result == 0
+    out = capsys.readouterr().out
+    # Remove ANSI color codes for easier testing
+    clean_out = "".join(char for char in out if char.isprintable() or char in "\n\r")
+    assert "Title" in clean_out
+    assert "Refactor login flow" in clean_out
+    # Check for worktree path (may be wrapped)
+    assert "worktrees/login" in clean_out
+    # Check for branch and description (should both be present with --verbose)
+    assert "feature/login-flow" in clean_out
+    assert "Improve login" in clean_out
+    assert "In Progress" in clean_out
 
 
 def test_list_errors_for_missing_path() -> None:
