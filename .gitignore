@@ -35,3 +35,6 @@ htmlcov/
 
 # Tasks directory (local ticket storage)
 tasks/
+
+# Worktrees directory (managed git worktrees)
+worktrees/
