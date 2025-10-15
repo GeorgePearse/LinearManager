@@ -48,8 +48,10 @@ def _discover_manifest_files(path: Path) -> list[Path]:
     raise RuntimeError(f"Manifest path {path} does not exist.")
 
 
-def _format_branch_description(issue: IssueSpec) -> str:
+def _format_branch_description(issue: IssueSpec, verbose: bool = False) -> str:
     branch = issue.branch or ""
+    if not verbose:
+        return branch
     description = (issue.description or "").strip()
     first_line = description.splitlines()[0] if description else ""
     if branch and first_line:
@@ -163,13 +165,13 @@ def _table_lines(headers: list[str], rows: Iterable[list[str]]) -> list[str]:
     return all_lines
 
 
-def _render_issue_table(issues: list[IssueSpec]) -> str:
+def _render_issue_table(issues: list[IssueSpec], verbose: bool = False) -> str:
     headers = ["Title", "Worktree", "Branch Description", "Status"]
     rows = [
         [
             issue.title,
             issue.worktree or "",
-            _format_branch_description(issue),
+            _format_branch_description(issue, verbose=verbose),
             _format_status(issue),
         ]
         for issue in issues
@@ -177,7 +179,7 @@ def _render_issue_table(issues: list[IssueSpec]) -> str:
     return "\n".join(_table_lines(headers, rows))
 
 
-def run_list(path: Path) -> int:
+def run_list(path: Path, verbose: bool = False) -> int:
     manifest_files = _discover_manifest_files(path)
     if not manifest_files:
         raise RuntimeError(f"No YAML files found in {path}")
@@ -191,7 +193,7 @@ def run_list(path: Path) -> int:
         print("No issues found.")
         return 0
 
-    print(_render_issue_table(issues))
+    print(_render_issue_table(issues, verbose=verbose))
     return 0
 
 
@@ -276,6 +278,12 @@ def build_parser() -> argparse.ArgumentParser:
         nargs="?",
         default=None,
         help="Path to a manifest file or directory containing manifests (defaults to LinearManager/tasks).",
+    )
+    list_parser.add_argument(
+        "--verbose",
+        "-v",
+        action="store_true",
+        help="Include full descriptions in the output.",
     )
 
     # add subcommand
@@ -385,7 +393,7 @@ def main(argv: list[str] | None = None) -> int:
     elif args.command == "list":
         try:
             path = args.path if args.path is not None else _get_tasks_directory()
-            return run_list(path)
+            return run_list(path, verbose=args.verbose)
         except Exception as exc:  # pragma: no cover - top-level handler
             parser.error(str(exc))
             return 1
