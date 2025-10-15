@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -15,6 +16,18 @@ from linear_manager.sync import IssueSpec, SyncConfig, load_manifest, run_sync
 
 # Initialize colorama
 init(autoreset=True)
+
+
+def _get_tasks_directory() -> Path:
+    """Get the tasks directory for LinearManager.
+
+    Uses LINEAR_MANAGER_HOME environment variable if set,
+    otherwise defaults to ~/LinearManager/tasks.
+    """
+    home = os.environ.get("LINEAR_MANAGER_HOME")
+    if home:
+        return Path(home) / "tasks"
+    return Path.home() / "LinearManager" / "tasks"
 
 
 def _discover_manifest_files(path: Path) -> list[Path]:
@@ -134,13 +147,10 @@ def run_add(
     labels: list[str] | None,
 ) -> int:
     """Add a new ticket to the tasks directory."""
-    # Get the LinearManager root directory
-    # Assuming cli.py is in src/linear_manager/, go up to project root
-    project_root = Path(__file__).parent.parent.parent
-    tasks_dir = project_root / "tasks"
+    tasks_dir = _get_tasks_directory()
 
     # Ensure tasks directory exists
-    tasks_dir.mkdir(exist_ok=True)
+    tasks_dir.mkdir(parents=True, exist_ok=True)
 
     # Create a timestamped filename
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -209,8 +219,8 @@ def build_parser() -> argparse.ArgumentParser:
         "path",
         type=Path,
         nargs="?",
-        default=Path("."),
-        help="Path to a manifest file or directory containing manifests (defaults to current directory).",
+        default=None,
+        help="Path to a manifest file or directory containing manifests (defaults to LinearManager/tasks).",
     )
 
     # add subcommand
@@ -319,7 +329,8 @@ def main(argv: list[str] | None = None) -> int:
             )
     elif args.command == "list":
         try:
-            return run_list(args.path)
+            path = args.path if args.path is not None else _get_tasks_directory()
+            return run_list(path)
         except Exception as exc:  # pragma: no cover - top-level handler
             parser.error(str(exc))
             return 1
