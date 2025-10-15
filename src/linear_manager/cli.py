@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import re
 import subprocess
 import sys
@@ -18,6 +17,7 @@ import yaml
 try:  # pragma: no cover - fallback when colorama is absent
     from colorama import Fore, Style, init
 except ImportError:  # pragma: no cover - fallback used in minimal environments
+
     class _Color:
         BLACK = BLUE = CYAN = GREEN = MAGENTA = RED = WHITE = YELLOW = ""
         RESET = ""
@@ -543,7 +543,9 @@ def _render_issue_table(issues: list[IssueSpec], verbose: bool = False) -> str:
             [
                 issue.title,
                 issue.worktree or "",
-                (issue.description or "").strip().splitlines()[0] if issue.description else "",
+                (issue.description or "").strip().splitlines()[0]
+                if issue.description
+                else "",
                 _format_status(issue),
             ]
             for issue in issues
