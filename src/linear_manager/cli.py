@@ -3,16 +3,32 @@
 from __future__ import annotations
 
 import argparse
-import os
 import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Iterable
 
 import yaml
-from colorama import Fore, Style, init
+
+try:  # pragma: no cover - fallback when colorama is absent
+    from colorama import Fore, Style, init
+except ImportError:  # pragma: no cover - fallback used in minimal environments
+    class _Color:
+        BLACK = BLUE = CYAN = GREEN = MAGENTA = RED = WHITE = YELLOW = ""
+        RESET = ""
+
+    class _Style:
+        BRIGHT = RESET_ALL = ""
+
+    def init(*_: object, **__: object) -> None:
+        return None
+
+    Fore = _Color()
+    Style = _Style()
 
 from linear_manager.sync import IssueSpec, SyncConfig, load_manifest, run_sync
+from . import config
+from .git_worktree import GitWorktreeError, create_branch_and_worktree
 
 # Initialize colorama
 init(autoreset=True)
@@ -24,10 +40,7 @@ def _get_tasks_directory() -> Path:
     Uses LINEAR_MANAGER_HOME environment variable if set,
     otherwise defaults to ~/LinearManager/tasks.
     """
-    home = os.environ.get("LINEAR_MANAGER_HOME")
-    if home:
-        return Path(home) / "tasks"
-    return Path.home() / "LinearManager" / "tasks"
+    return config.get_tasks_directory()
 
 
 def _discover_manifest_files(path: Path) -> list[Path]:
@@ -166,16 +179,27 @@ def _table_lines(headers: list[str], rows: Iterable[list[str]]) -> list[str]:
 
 
 def _render_issue_table(issues: list[IssueSpec], verbose: bool = False) -> str:
-    headers = ["Title", "Worktree", "Branch Description", "Status"]
-    rows = [
-        [
-            issue.title,
-            issue.worktree or "",
-            _format_branch_description(issue, verbose=verbose),
-            _format_status(issue),
+    if verbose:
+        headers = ["Title", "Worktree", "Description", "Status"]
+        rows = [
+            [
+                issue.title,
+                issue.worktree or "",
+                (issue.description or "").strip().splitlines()[0] if issue.description else "",
+                _format_status(issue),
+            ]
+            for issue in issues
         ]
-        for issue in issues
-    ]
+    else:
+        headers = ["Title", "Worktree", "Status"]
+        rows = [
+            [
+                issue.title,
+                issue.worktree or "",
+                _format_status(issue),
+            ]
+            for issue in issues
+        ]
     return "\n".join(_table_lines(headers, rows))
 
 
@@ -216,11 +240,18 @@ def run_add(
     filename = f"{timestamp}_{title.lower().replace(' ', '_')[:30]}.yaml"
     filepath = tasks_dir / filename
 
+    try:
+        branch_name, worktree_path = create_branch_and_worktree(title)
+    except GitWorktreeError as exc:
+        raise RuntimeError(f"Failed to create git worktree: {exc}") from exc
+
     # Build the issue data
     issue_dict: dict[str, Any] = {
         "title": title,
         "description": description or "",
         "team_key": team_key,
+        "branch": branch_name,
+        "worktree": str(worktree_path),
     }
 
     # Add optional fields if provided
@@ -241,6 +272,8 @@ def run_add(
     print(f"  {Fore.CYAN}File:{Style.RESET_ALL} {filepath}")
     print(f"  {Fore.CYAN}Title:{Style.RESET_ALL} {title}")
     print(f"  {Fore.CYAN}Team:{Style.RESET_ALL} {team_key}")
+    print(f"  {Fore.CYAN}Branch:{Style.RESET_ALL} {branch_name}")
+    print(f"  {Fore.CYAN}Worktree:{Style.RESET_ALL} {worktree_path}")
 
     return 0
 
