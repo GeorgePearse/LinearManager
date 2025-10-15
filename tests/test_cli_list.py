@@ -7,7 +7,7 @@ from textwrap import dedent
 
 import pytest
 
-from linear_manager.cli import main
+from linear_manager.cli import main, _strip_ansi
 
 
 def _write_manifest(path: Path, content: str) -> None:
@@ -38,7 +38,7 @@ def test_list_outputs_table_for_manifest(
     assert result == 0
     out = capsys.readouterr().out
     # Remove ANSI color codes for easier testing
-    clean_out = "".join(char for char in out if char.isprintable() or char in "\n\r")
+    clean_out = _strip_ansi(out)
     assert "Title" in clean_out
     assert "Refactor login flow" in clean_out
     # Check for worktree path (may be wrapped)
@@ -86,7 +86,7 @@ def test_list_uses_defaults_and_marks_complete(
     assert result == 0
     out = capsys.readouterr().out
     # Remove ANSI color codes for easier testing
-    clean_out = "".join(char for char in out if char.isprintable() or char in "\n\r")
+    clean_out = _strip_ansi(out)
     assert "Common refactor" in clean_out
     # Check for worktree path (may be wrapped)
     assert "worktrees/common" in clean_out
@@ -94,7 +94,7 @@ def test_list_uses_defaults_and_marks_complete(
     assert "feature/common" in clean_out
     assert "Update shared helpers" in clean_out
     # complete flag should surface in status column
-    assert "complete" in clean_out
+    assert "☑" in clean_out
     assert "Review" in clean_out
 
 

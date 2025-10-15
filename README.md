@@ -15,6 +15,20 @@ uv pip install -e .
 
 The CLI expects a Linear personal API token in `LINEAR_API_KEY`.
 
+## Global Install
+
+`uv tool` can install the `manager` CLI globally so it is available on your PATH without activating a virtualenv.
+
+```bash
+# Install from a local checkout
+uv tool install --from . manager
+
+# Or install directly from GitHub
+uv tool install --from git+https://github.com/your-username/LinearManager manager
+```
+
+After installation you can run `manager ...` from anywhere on your machine.
+
 ## Manifest Format
 
 Create a YAML file for each issue you want to sync. Each file should contain a single issue:
