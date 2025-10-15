@@ -13,6 +13,7 @@ license = {text = "MIT"}
 dependencies = [
     "httpx>=0.27",
     "PyYAML>=6.0",
+    "colorama>=0.4.6",
 ]
 keywords = ["linear", "cli", "automation"]
 classifiers = [
@@ -32,3 +33,9 @@ manager = "linear_manager.cli:main"
 
 [tool.uv]
 package = true
+
+[dependency-groups]
+dev = [
+    "types-colorama>=0.4.15.20250801",
+    "types-pyyaml>=6.0.12.20250915",
+]
