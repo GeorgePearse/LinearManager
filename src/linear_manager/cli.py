@@ -4,10 +4,17 @@ from __future__ import annotations
 
 import argparse
 import sys
+from datetime import datetime
 from pathlib import Path
 from typing import Iterable
 
+import yaml
+from colorama import Fore, Style, init
+
 from linear_manager.sync import IssueSpec, SyncConfig, load_manifest, run_sync
+
+# Initialize colorama
+init(autoreset=True)
 
 
 def _discover_manifest_files(path: Path) -> list[Path]:
@@ -59,23 +66,27 @@ def _table_lines(headers: list[str], rows: Iterable[list[str]]) -> list[str]:
                 *(len(line) for line in cell_lines),
             )
 
-    def build_rule(char: str) -> str:
-        return "+" + "+".join(char * (width + 2) for width in widths) + "+"
+    def build_rule(char: str, color: str = Fore.CYAN) -> str:
+        rule = "+" + "+".join(char * (width + 2) for width in widths) + "+"
+        return f"{color}{rule}{Style.RESET_ALL}"
 
-    def render_row(cell_lines: list[list[str]]) -> list[str]:
+    def render_row(cell_lines: list[list[str]], is_header: bool = False) -> list[str]:
         height = max(len(lines) for lines in cell_lines)
         rendered: list[str] = []
         for line_idx in range(height):
             parts: list[str] = []
             for col_idx, lines in enumerate(cell_lines):
                 text = lines[line_idx] if line_idx < len(lines) else ""
-                parts.append(text.ljust(widths[col_idx]))
-            rendered.append("| " + " | ".join(parts) + " |")
+                if is_header:
+                    parts.append(f"{Fore.YELLOW}{Style.BRIGHT}{text.ljust(widths[col_idx])}{Style.RESET_ALL}")
+                else:
+                    parts.append(text.ljust(widths[col_idx]))
+            rendered.append(f"{Fore.CYAN}|{Style.RESET_ALL} " + f" {Fore.CYAN}|{Style.RESET_ALL} ".join(parts) + f" {Fore.CYAN}|{Style.RESET_ALL}")
         return rendered
 
     all_lines: list[str] = [build_rule("-")]
-    all_lines.extend(render_row(split_rows[0]))
-    all_lines.append(build_rule("="))
+    all_lines.extend(render_row(split_rows[0], is_header=True))
+    all_lines.append(build_rule("=", Fore.CYAN))
     for row_cells in split_rows[1:]:
         all_lines.extend(render_row(row_cells))
     all_lines.append(build_rule("-"))
@@ -114,6 +125,59 @@ def run_list(path: Path) -> int:
     return 0
 
 
+def run_add(
+    title: str,
+    description: str | None,
+    team_key: str,
+    priority: int | None,
+    assignee: str | None,
+    labels: list[str] | None,
+) -> int:
+    """Add a new ticket to the tasks directory."""
+    # Get the LinearManager root directory
+    # Assuming cli.py is in src/linear_manager/, go up to project root
+    project_root = Path(__file__).parent.parent.parent
+    tasks_dir = project_root / "tasks"
+
+    # Ensure tasks directory exists
+    tasks_dir.mkdir(exist_ok=True)
+
+    # Create a timestamped filename
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"{timestamp}_{title.lower().replace(' ', '_')[:30]}.yaml"
+    filepath = tasks_dir / filename
+
+    # Build the issue data
+    issue_data = {
+        "issues": [
+            {
+                "title": title,
+                "description": description or "",
+                "team_key": team_key,
+            }
+        ]
+    }
+
+    # Add optional fields if provided
+    if priority is not None:
+        issue_data["issues"][0]["priority"] = priority
+    if assignee:
+        issue_data["issues"][0]["assignee_email"] = assignee
+    if labels:
+        issue_data["issues"][0]["labels"] = labels
+
+    # Write to file
+    with filepath.open("w", encoding="utf-8") as f:
+        yaml.safe_dump(issue_data, f, default_flow_style=False, sort_keys=False)
+
+    print(f"{Fore.GREEN}✓ Ticket created successfully:{Style.RESET_ALL}")
+    print(f"  {Fore.CYAN}File:{Style.RESET_ALL} {filepath}")
+    print(f"  {Fore.CYAN}Title:{Style.RESET_ALL} {title}")
+    print(f"  {Fore.CYAN}Team:{Style.RESET_ALL} {team_key}")
+
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="manager",
@@ -147,6 +211,50 @@ def build_parser() -> argparse.ArgumentParser:
         nargs="?",
         default=Path("."),
         help="Path to a manifest file or directory containing manifests (defaults to current directory).",
+    )
+
+    # add subcommand
+    add_parser = subparsers.add_parser(
+        "add",
+        help="Add a new ticket to the tasks directory.",
+    )
+    add_parser.add_argument(
+        "title",
+        type=str,
+        help="Title of the ticket",
+    )
+    add_parser.add_argument(
+        "--description",
+        "-d",
+        type=str,
+        help="Description of the ticket",
+    )
+    add_parser.add_argument(
+        "--team-key",
+        "-t",
+        type=str,
+        required=True,
+        help="Team key (e.g., ENG, PROD)",
+    )
+    add_parser.add_argument(
+        "--priority",
+        "-p",
+        type=int,
+        choices=[0, 1, 2, 3, 4],
+        help="Priority (0=None, 1=Low, 2=Medium, 3=High, 4=Urgent)",
+    )
+    add_parser.add_argument(
+        "--assignee",
+        "-a",
+        type=str,
+        help="Assignee email address",
+    )
+    add_parser.add_argument(
+        "--labels",
+        "-l",
+        type=str,
+        nargs="+",
+        help="Labels for the ticket",
     )
 
     # Legacy: direct file argument (for backwards compatibility)
@@ -212,6 +320,19 @@ def main(argv: list[str] | None = None) -> int:
     elif args.command == "list":
         try:
             return run_list(args.path)
+        except Exception as exc:  # pragma: no cover - top-level handler
+            parser.error(str(exc))
+            return 1
+    elif args.command == "add":
+        try:
+            return run_add(
+                title=args.title,
+                description=args.description,
+                team_key=args.team_key,
+                priority=args.priority,
+                assignee=args.assignee,
+                labels=args.labels,
+            )
         except Exception as exc:  # pragma: no cover - top-level handler
             parser.error(str(exc))
             return 1

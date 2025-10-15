@@ -13,6 +13,7 @@ license = {text = "MIT"}
 dependencies = [
     "httpx>=0.27",
     "PyYAML>=6.0",
+    "colorama>=0.4.6",
 ]
 keywords = ["linear", "cli", "automation"]
 classifiers = [
