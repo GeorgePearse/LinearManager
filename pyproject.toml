@@ -33,3 +33,9 @@ manager = "linear_manager.cli:main"
 
 [tool.uv]
 package = true
+
+[dependency-groups]
+dev = [
+    "types-colorama>=0.4.15.20250801",
+    "types-pyyaml>=6.0.12.20250915",
+]
