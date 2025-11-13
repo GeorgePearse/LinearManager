@@ -471,13 +471,32 @@ class TeamContext:
         # Auto-create missing labels if client is provided (skip in dry-run mode)
         if missing and client and not dry_run:
             for label in missing:
-                created_label = client.create_label(self.id, label)
-                label_id = created_label["id"]
-                # Add to local cache
-                self.labels[_normalize_key(label)] = label_id
-                self.available_labels.append(label)
-                ids.append(label_id)
-                print(f"  Created label '{label}' in team {self.key}")
+                try:
+                    created_label = client.create_label(self.id, label)
+                    label_id = created_label["id"]
+                    # Add to local cache
+                    self.labels[_normalize_key(label)] = label_id
+                    self.available_labels.append(label)
+                    ids.append(label_id)
+                    print(f"  Created label '{label}' in team {self.key}")
+                except LinearApiError as e:
+                    # If label creation fails with "duplicate label name",
+                    # fetch the existing label instead
+                    if "duplicate label name" in str(e).lower():
+                        existing_label = client.fetch_label_by_name(self.id, label)
+                        if existing_label:
+                            label_id = existing_label["id"]
+                            # Add to local cache
+                            self.labels[_normalize_key(label)] = label_id
+                            self.available_labels.append(label)
+                            ids.append(label_id)
+                            print(f"  Found existing label '{label}' in team {self.key}")
+                        else:
+                            # Label doesn't exist but creation failed - re-raise
+                            raise
+                    else:
+                        # Different error - re-raise
+                        raise
         elif missing and dry_run:
             # In dry-run mode, just print what would be created
             for label in missing:
@@ -612,6 +631,20 @@ class LinearClient:
             raise LinearApiError("Linear API did not return label data after creation.")
         return label
 
+    def fetch_label_by_name(self, team_id: str, name: str) -> dict[str, Any] | None:
+        """Fetch a label by name from a team."""
+        payload = self._request(
+            FETCH_LABEL_BY_NAME_QUERY,
+            {"name": name},
+        )
+        labels = payload.get("issueLabels", {}).get("nodes", [])
+        # Filter by team_id in code since the team field might be None
+        for label in labels:
+            team = label.get("team")
+            if team and team.get("id") == team_id:
+                return label
+        return None
+
     def fetch_team_issues(self, team_key: str, limit: int = 100) -> list[dict[str, Any]]:
         """Fetch all issues for a team from Linear."""
         all_issues: list[dict[str, Any]] = []
@@ -659,20 +692,20 @@ query TeamContext($teamKey: String!) {
     nodes {
       id
       key
-      states(first: 20) {
+      states(first: 30) {
         nodes {
           id
           name
           type
         }
       }
-      labels(first: 20) {
+      labels(first: 80) {
         nodes {
           id
           name
         }
       }
-      members(first: 20) {
+      members(first: 30) {
         nodes {
           id
           email
@@ -734,6 +767,22 @@ mutation IssueLabelCreate($input: IssueLabelCreateInput!) {
     issueLabel {
       id
       name
+    }
+  }
+}
+""".strip()
+
+
+FETCH_LABEL_BY_NAME_QUERY = """
+query FetchLabelByName($name: String!) {
+  issueLabels(filter: { name: { eqIgnoreCase: $name } }) {
+    nodes {
+      id
+      name
+      team {
+        id
+        key
+      }
     }
   }
 }
