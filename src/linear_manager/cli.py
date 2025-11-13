@@ -541,7 +541,7 @@ def _render_issue_table(issues: list[IssueSpec], verbose: bool = False) -> str:
         headers = ["Title", "Branch", "Worktree", "Description", "Status"]
         rows = [
             [
-                issue.title,
+                f"• {issue.title}",
                 issue.branch or "",
                 issue.worktree or "",
                 (issue.description or "").strip().splitlines()[0]
@@ -555,7 +555,7 @@ def _render_issue_table(issues: list[IssueSpec], verbose: bool = False) -> str:
         headers = ["Title", "Branch", "Worktree", "Status"]
         rows = [
             [
-                issue.title,
+                f"• {issue.title}",
                 issue.branch or "",
                 issue.worktree or "",
                 _format_status(issue),
