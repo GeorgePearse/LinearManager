@@ -116,7 +116,40 @@ manager sync path/to/issues.yaml
 manager sync . --dry-run
 ```
 
-The tool syncs YAML → Linear only; it never pulls changes back into the manifest.
+## Pulling Issues from Linear
+
+The `pull` command allows you to download issues from Linear and save them as local YAML files, without pushing any local changes back to Linear.
+
+```bash
+# Pull issues from a specific team
+manager pull --team-keys ENG --output ./pulled_issues
+
+# Pull issues from multiple teams
+manager pull --team-keys ENG PROD --output ./remote_issues
+
+# Pull to the default LinearManager/tasks directory
+manager pull --team-keys ENG
+
+# Limit the number of issues fetched per team (default is 100)
+manager pull --team-keys ENG --limit 50
+```
+
+Options:
+- `--team-keys` / `-t` (required): One or more team keys to pull issues from
+- `--output` / `-o`: Directory to save YAML files (defaults to LinearManager/tasks)
+- `--limit`: Maximum number of issues to fetch per team (default: 100)
+
+The pull command will:
+1. Fetch issues from Linear for the specified teams
+2. Create one YAML file per team (e.g., `eng_issues.yaml`)
+3. Include all issue metadata: identifier, title, description, state, priority, assignee, labels, and branch name
+4. Never upload local changes - it's read-only from Linear
+
+This is useful for:
+- Backing up Linear issues locally
+- Analyzing issues offline
+- Migrating issues between teams or projects
+- Creating templates from existing issues
 
 > **Note**: We plan to integrate with [par](https://github.com/your-username/par) for enhanced parallel processing and workflow automation.
 

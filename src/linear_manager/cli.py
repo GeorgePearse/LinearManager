@@ -31,7 +31,7 @@ except ImportError:  # pragma: no cover - fallback used in minimal environments
     Fore = _Color()
     Style = _Style()
 
-from linear_manager.sync import IssueSpec, SyncConfig, load_manifest, run_sync
+from linear_manager.sync import IssueSpec, SyncConfig, load_manifest, run_sync, run_pull
 from . import config
 from .git_worktree import GitWorktreeError, create_branch_and_worktree
 
@@ -753,6 +753,33 @@ def build_parser() -> argparse.ArgumentParser:
         help="Labels for the ticket",
     )
 
+    # pull subcommand
+    pull_parser = subparsers.add_parser(
+        "pull",
+        help="Pull issues from Linear and save them as local YAML files.",
+    )
+    pull_parser.add_argument(
+        "--team-keys",
+        "-t",
+        type=str,
+        nargs="+",
+        required=True,
+        help="Team keys to pull issues from (e.g., ENG PROD)",
+    )
+    pull_parser.add_argument(
+        "--output",
+        "-o",
+        type=Path,
+        default=None,
+        help="Output directory for YAML files (defaults to LinearManager/tasks)",
+    )
+    pull_parser.add_argument(
+        "--limit",
+        type=int,
+        default=100,
+        help="Maximum number of issues to fetch per team (default: 100)",
+    )
+
     # Legacy: direct file argument (for backwards compatibility)
     parser.add_argument(
         "manifest",
@@ -840,6 +867,18 @@ def main(argv: list[str] | None = None) -> int:
                 assignee=args.assignee,
                 labels=args.labels,
             )
+        except Exception as exc:  # pragma: no cover - top-level handler
+            parser.error(str(exc))
+            return 1
+    elif args.command == "pull":
+        try:
+            output_dir = args.output if args.output is not None else _get_tasks_directory()
+            run_pull(
+                team_keys=args.team_keys,
+                output_dir=output_dir,
+                limit=args.limit,
+            )
+            return 0
         except Exception as exc:  # pragma: no cover - top-level handler
             parser.error(str(exc))
             return 1

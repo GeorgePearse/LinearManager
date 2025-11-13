@@ -81,6 +81,90 @@ def run_sync(config: SyncConfig) -> None:
             _process_issue(client, context, issue, config)
 
 
+def run_pull(team_keys: list[str], output_dir: Path, limit: int = 100) -> None:
+    """Pull issues from Linear and save them as local YAML files."""
+    token = os.environ.get("LINEAR_API_KEY")
+    if not token:
+        raise RuntimeError(
+            "LINEAR_API_KEY environment variable is required to pull from Linear."
+        )
+
+    # Ensure output directory exists
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    with LinearClient(token=token) as client:
+        for team_key in team_keys:
+            print(f"Fetching issues for team {team_key}...")
+
+            # Fetch team context to get state names
+            context = client.fetch_team_context(team_key)
+
+            # Fetch issues from Linear
+            issues = client.fetch_team_issues(team_key, limit=limit)
+
+            if not issues:
+                print(f"  No issues found for team {team_key}.")
+                continue
+
+            # Group issues by some logical grouping (we'll use team for now)
+            # Each team gets its own YAML file
+            filename = f"{team_key.lower()}_issues.yaml"
+            filepath = output_dir / filename
+
+            # Convert Linear issues to our IssueSpec format
+            issue_specs: list[dict[str, Any]] = []
+            for issue_data in issues:
+                spec: dict[str, Any] = {
+                    "identifier": issue_data["identifier"],
+                    "title": issue_data["title"],
+                    "description": issue_data.get("description", ""),
+                    "team_key": team_key,
+                }
+
+                # Add state if present
+                state_info = issue_data.get("state")
+                if state_info:
+                    spec["state"] = state_info["name"]
+
+                # Add priority if present
+                priority = issue_data.get("priority")
+                if priority is not None:
+                    spec["priority"] = priority
+
+                # Add assignee if present
+                assignee = issue_data.get("assignee")
+                if assignee and assignee.get("email"):
+                    spec["assignee_email"] = assignee["email"]
+
+                # Add labels if present
+                labels_data = issue_data.get("labels", {}).get("nodes", [])
+                if labels_data:
+                    spec["labels"] = [label["name"] for label in labels_data]
+
+                # Add branch name if present
+                branch_name = issue_data.get("branchName")
+                if branch_name:
+                    spec["branch"] = branch_name
+
+                issue_specs.append(spec)
+
+            # Create manifest structure
+            manifest = {
+                "defaults": {
+                    "team_key": team_key,
+                },
+                "issues": issue_specs,
+            }
+
+            # Write to file
+            filepath.write_text(
+                yaml.safe_dump(manifest, default_flow_style=False, sort_keys=False),
+                encoding="utf-8",
+            )
+
+            print(f"  Saved {len(issue_specs)} issue(s) to {filepath}")
+
+
 def _process_issue(
     client: "LinearClient", context: "TeamContext", spec: IssueSpec, config: SyncConfig
 ) -> None:
@@ -462,6 +546,37 @@ class LinearClient:
             raise LinearApiError("Linear API did not return issue data after update.")
         return issue
 
+    def fetch_team_issues(self, team_key: str, limit: int = 100) -> list[dict[str, Any]]:
+        """Fetch all issues for a team from Linear."""
+        all_issues: list[dict[str, Any]] = []
+        has_next_page = True
+        after_cursor: str | None = None
+
+        while has_next_page and len(all_issues) < limit:
+            batch_size = min(50, limit - len(all_issues))
+            payload = self._request(
+                FETCH_TEAM_ISSUES_QUERY,
+                {"teamKey": team_key, "first": batch_size, "after": after_cursor},
+            )
+
+            teams = payload.get("teams", {}).get("nodes", [])
+            if not teams:
+                break
+
+            team = teams[0]
+            issues_data = team.get("issues", {})
+            issues = issues_data.get("nodes", [])
+            all_issues.extend(issues)
+
+            page_info = issues_data.get("pageInfo", {})
+            has_next_page = page_info.get("hasNextPage", False)
+            after_cursor = page_info.get("endCursor")
+
+            if not after_cursor:
+                break
+
+        return all_issues[:limit]
+
     def _request(self, query: str, variables: dict[str, Any]) -> dict[str, Any]:
         response = self._client.post("", json={"query": query, "variables": variables})
         response.raise_for_status()
@@ -535,6 +650,48 @@ mutation IssueUpdate($id: String!, $input: IssueUpdateInput!) {
       id
       identifier
       url
+    }
+  }
+}
+""".strip()
+
+
+FETCH_TEAM_ISSUES_QUERY = """
+query FetchTeamIssues($teamKey: String!, $first: Int!, $after: String) {
+  teams(filter: { key: { eq: $teamKey }}) {
+    nodes {
+      id
+      key
+      issues(first: $first, after: $after, orderBy: updatedAt) {
+        nodes {
+          id
+          identifier
+          title
+          description
+          url
+          priority
+          state {
+            id
+            name
+            type
+          }
+          assignee {
+            id
+            email
+          }
+          labels {
+            nodes {
+              id
+              name
+            }
+          }
+          branchName
+        }
+        pageInfo {
+          hasNextPage
+          endCursor
+        }
+      }
     }
   }
 }
