@@ -691,6 +691,12 @@ query IssueByIdentifier($identifier: String!) {
     identifier
     url
     title
+    labels {
+      nodes {
+        id
+        name
+      }
+    }
   }
 }
 """.strip()
