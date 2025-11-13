@@ -211,7 +211,7 @@ def _process_issue(
         if spec.priority is not None:
             update_input["priority"] = spec.priority
         if spec.labels:
-            update_input["labelIds"] = context.resolve_label_ids(spec.labels, client)
+            update_input["labelIds"] = context.resolve_label_ids(spec.labels, client, config.dry_run)
         if spec.assignee_email:
             update_input["assigneeId"] = context.resolve_member_id(spec.assignee_email)
         if spec.state:
@@ -241,7 +241,7 @@ def _process_issue(
     if spec.priority is not None:
         create_input["priority"] = spec.priority
     if spec.labels:
-        create_input["labelIds"] = context.resolve_label_ids(spec.labels, client)
+        create_input["labelIds"] = context.resolve_label_ids(spec.labels, client, config.dry_run)
     if spec.assignee_email:
         create_input["assigneeId"] = context.resolve_member_id(spec.assignee_email)
     desired_state_id = None
@@ -457,7 +457,7 @@ class TeamContext:
                 f"State '{state_name}' is not valid for team {self.key}. Available states: {options}."
             ) from exc
 
-    def resolve_label_ids(self, labels: list[str], client: "LinearClient | None" = None) -> list[str]:
+    def resolve_label_ids(self, labels: list[str], client: "LinearClient | None" = None, dry_run: bool = False) -> list[str]:
         ids: list[str] = []
         missing: list[str] = []
         for label in labels:
@@ -468,8 +468,8 @@ class TeamContext:
                 continue
             ids.append(label_id)
 
-        # Auto-create missing labels if client is provided
-        if missing and client:
+        # Auto-create missing labels if client is provided (skip in dry-run mode)
+        if missing and client and not dry_run:
             for label in missing:
                 created_label = client.create_label(self.id, label)
                 label_id = created_label["id"]
@@ -478,6 +478,12 @@ class TeamContext:
                 self.available_labels.append(label)
                 ids.append(label_id)
                 print(f"  Created label '{label}' in team {self.key}")
+        elif missing and dry_run:
+            # In dry-run mode, just print what would be created
+            for label in missing:
+                print(f"  DRY RUN would create label '{label}' in team {self.key}")
+                # Return empty string IDs for dry-run
+                ids.append("")
         elif missing:
             options = ", ".join(self.available_labels) or "none"
             raise RuntimeError(
