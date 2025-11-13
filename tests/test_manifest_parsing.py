@@ -114,6 +114,7 @@ class TestDefaultsParsing:
         assert defaults.priority is None
         assert defaults.branch is None
         assert defaults.worktree is None
+        assert defaults.blocked_by == []
 
     def test_parse_full_defaults(self) -> None:
         """Test parsing complete defaults."""
@@ -125,6 +126,7 @@ class TestDefaultsParsing:
             "priority": 3,
             "branch": "feature/test",
             "worktree": "/repos/feature-test",
+            "blocked_by": ["Model performance", "API availability"],
         }
         defaults = _parse_defaults(data)
         assert defaults.team_key == "ENG"
@@ -134,6 +136,7 @@ class TestDefaultsParsing:
         assert defaults.priority == 3
         assert defaults.branch == "feature/test"
         assert defaults.worktree == "/repos/feature-test"
+        assert defaults.blocked_by == ["Model performance", "API availability"]
 
     def test_parse_defaults_with_assignee_alias(self) -> None:
         """Test that 'assignee' is accepted as alias for 'assignee_email'."""
@@ -145,6 +148,11 @@ class TestDefaultsParsing:
         """Test parsing defaults with invalid labels type."""
         with pytest.raises(RuntimeError, match="'defaults.labels' must be a list"):
             _parse_defaults({"labels": "not_a_list"})
+
+    def test_parse_defaults_invalid_blocked_by_type(self) -> None:
+        """Test parsing defaults with invalid blocked_by type."""
+        with pytest.raises(RuntimeError, match="'defaults.blocked_by' must be a list"):
+            _parse_defaults({"blocked_by": "not_a_list"})
 
 
 class TestIssueParsing:
@@ -165,6 +173,7 @@ class TestIssueParsing:
         assert issue.priority is None
         assert issue.branch is None
         assert issue.worktree is None
+        assert issue.blocked_by == []
 
     def test_parse_full_issue(self) -> None:
         """Test parsing an issue with all fields."""
@@ -180,6 +189,7 @@ class TestIssueParsing:
             "priority": 2,
             "branch": "feature/test",
             "worktree": "/repos/feature-test",
+            "blocked_by": ["Model performance", "Database migration"],
         }
         issue = _parse_issue(data, defaults, 1)
         assert issue.title == "Test Issue"
@@ -192,6 +202,7 @@ class TestIssueParsing:
         assert issue.priority == 2
         assert issue.branch == "feature/test"
         assert issue.worktree == "/repos/feature-test"
+        assert issue.blocked_by == ["Model performance", "Database migration"]
 
     def test_parse_issue_with_defaults(self) -> None:
         """Test that issue inherits from defaults."""
@@ -302,6 +313,39 @@ class TestIssueParsing:
         }
         issue = _parse_issue(data, defaults, 1)
         assert issue.state == "Done"
+
+    def test_parse_issue_blocked_by_merge(self) -> None:
+        """Test that issue blocked_by merges with default blocked_by."""
+        defaults = ManifestDefaults(team_key="ENG", blocked_by=["Default1", "Default2"])
+        data = {
+            "title": "Test Issue",
+            "blocked_by": ["Issue1", "Issue2"],
+        }
+        issue = _parse_issue(data, defaults, 1)
+        assert issue.blocked_by == ["Default1", "Default2", "Issue1", "Issue2"]
+
+    def test_parse_issue_blocked_by_dedupe(self) -> None:
+        """Test that duplicate blocked_by items are removed (case-insensitive)."""
+        defaults = ManifestDefaults(team_key="ENG", blocked_by=["Performance", "API"])
+        data = {
+            "title": "Test Issue",
+            "blocked_by": ["performance", "Database"],
+        }
+        issue = _parse_issue(data, defaults, 1)
+        assert "Performance" in issue.blocked_by
+        assert "performance" not in issue.blocked_by
+        assert "API" in issue.blocked_by
+        assert "Database" in issue.blocked_by
+
+    def test_parse_issue_invalid_blocked_by_type(self) -> None:
+        """Test parsing issue with invalid blocked_by type."""
+        defaults = ManifestDefaults(team_key="ENG")
+        data = {
+            "title": "Test Issue",
+            "blocked_by": "not_a_list",
+        }
+        with pytest.raises(RuntimeError, match="'blocked_by' must be a list"):
+            _parse_issue(data, defaults, 1)
 
 
 class TestHelperFunctions:

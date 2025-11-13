@@ -32,6 +32,7 @@ class ManifestDefaults:
     branch: str | None = None
     worktree: str | None = None
     project: str | None = None
+    blocked_by: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -51,6 +52,7 @@ class IssueSpec:
     worktree: str | None = None
     project_name: str | None = None
     project_id: str | None = None
+    blocked_by: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -155,6 +157,10 @@ def run_pull(team_keys: list[str], output_dir: Path, limit: int = 100) -> None:
                     spec["project_name"] = project.get("name")
                     spec["project_id"] = project.get("id")
 
+                # Add blocked_by relationships if present
+                # Note: Linear API doesn't currently support issue relations in this query
+                # This is a placeholder for future enhancement
+
                 issue_specs.append(spec)
 
             # Create manifest structure
@@ -184,6 +190,8 @@ def _process_issue(
         context_notes.append(f"branch={spec.branch}")
     if spec.worktree:
         context_notes.append(f"worktree={spec.worktree}")
+    if spec.blocked_by:
+        context_notes.append(f"blocked_by={', '.join(spec.blocked_by)}")
     if context_notes:
         print(f"{descriptor}: context -> {', '.join(context_notes)}")
 
@@ -291,6 +299,9 @@ def _parse_defaults(data: Any) -> ManifestDefaults:
     labels = data.get("labels") or []
     if not isinstance(labels, list):
         raise RuntimeError("'defaults.labels' must be a list of strings.")
+    blocked_by = data.get("blocked_by") or []
+    if not isinstance(blocked_by, list):
+        raise RuntimeError("'defaults.blocked_by' must be a list of strings.")
     return ManifestDefaults(
         team_key=_optional_str(data.get("team_key")),
         state=_optional_str(data.get("status") or data.get("state")),
@@ -302,6 +313,7 @@ def _parse_defaults(data: Any) -> ManifestDefaults:
         branch=_optional_str(data.get("branch")),
         worktree=_optional_str(data.get("worktree")),
         project=_optional_str(data.get("project")),
+        blocked_by=[_require_str(item, "'defaults.blocked_by' entries") for item in blocked_by],
     )
 
 
@@ -345,6 +357,17 @@ def _parse_issue(data: Any, defaults: ManifestDefaults, index: int) -> IssueSpec
     project_name = _optional_str(data.get("project_name") or data.get("project")) or defaults.project
     project_id = _optional_str(data.get("project_id"))
 
+    blocked_by_raw = data.get("blocked_by")
+    blocked_by = defaults.blocked_by.copy()
+    if blocked_by_raw:
+        if not isinstance(blocked_by_raw, list):
+            raise RuntimeError(f"Issue #{index}: 'blocked_by' must be a list of strings.")
+        blocked_by.extend(
+            _require_str(item, f"Issue #{index}: blocked_by entries")
+            for item in blocked_by_raw
+        )
+    blocked_by = _dedupe(blocked_by)
+
     return IssueSpec(
         title=title,
         description=description,
@@ -359,6 +382,7 @@ def _parse_issue(data: Any, defaults: ManifestDefaults, index: int) -> IssueSpec
         worktree=worktree,
         project_name=project_name,
         project_id=project_id,
+        blocked_by=blocked_by,
     )
 
 

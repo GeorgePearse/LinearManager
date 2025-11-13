@@ -433,6 +433,9 @@ def _format_status(issue: IssueSpec) -> str:
         parts.append(f"{Style.DIM}{label_hint}{Style.RESET_ALL}")
     if issue.complete:
         parts.append(f"{Fore.GREEN}{Style.BRIGHT}☑{Style.RESET_ALL}")
+    if issue.blocked_by:
+        blocked_str = ", ".join(issue.blocked_by)
+        parts.append(f"{Fore.RED}{Style.BRIGHT}🚫{Style.RESET_ALL} {Style.DIM}Blocked by: {blocked_str}{Style.RESET_ALL}")
     return " ".join(parts)
 
 
@@ -603,8 +606,13 @@ def _render_by_project(issues: list[IssueSpec]) -> str:
         project_name = issue.project_name or "(No Project)"
         projects[project_name].append(issue)
 
-    # Sort projects alphabetically
-    sorted_projects = sorted(projects.keys())
+    # Sort projects: tickets with projects first (alphabetically), then "(No Project)" last
+    def project_sort_key(project_name: str) -> tuple[int, str]:
+        if project_name == "(No Project)":
+            return (1, project_name)  # "(No Project)" goes last
+        return (0, project_name)  # Real projects go first, sorted alphabetically
+
+    sorted_projects = sorted(projects.keys(), key=project_sort_key)
 
     output_lines: list[str] = []
     for project_name in sorted_projects:
