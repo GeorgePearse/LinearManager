@@ -593,7 +593,75 @@ def _render_issue_table(issues: list[IssueSpec], verbose: bool = False) -> str:
     return "\n".join(_table_lines(headers, rows))
 
 
-def run_list(path: Path, verbose: bool = False) -> int:
+def _render_by_project(issues: list[IssueSpec]) -> str:
+    """Render issues grouped by project."""
+    from collections import defaultdict
+
+    # Group issues by project
+    projects: dict[str, list[IssueSpec]] = defaultdict(list)
+    for issue in issues:
+        project_name = issue.project_name or "(No Project)"
+        projects[project_name].append(issue)
+
+    # Sort projects alphabetically
+    sorted_projects = sorted(projects.keys())
+
+    output_lines: list[str] = []
+    for project_name in sorted_projects:
+        project_issues = projects[project_name]
+
+        # Project header with count
+        header = f"\n{Fore.CYAN}{Style.BRIGHT}# {project_name}{Style.RESET_ALL} {Fore.YELLOW}({len(project_issues)} ticket{'s' if len(project_issues) != 1 else ''}){Style.RESET_ALL}"
+        output_lines.append(header)
+        output_lines.append("")
+
+        # Sort issues by status (in progress first, then todo, then done)
+        def sort_key(issue: IssueSpec) -> tuple[int, str]:
+            state = (issue.state or "").lower()
+            if state in {"in progress", "wip", "doing", "progress", "started", "working"}:
+                priority = 0
+            elif state in {"todo", "to do", "backlog", "triage", "planned", "ready"}:
+                priority = 1
+            elif state in {"review", "in review", "feedback", "blocked", "qa", "testing"}:
+                priority = 2
+            elif state in {"done", "completed", "complete", "closed", "resolved"}:
+                priority = 3
+            elif state in {"canceled", "cancelled", "abandoned", "declined"}:
+                priority = 4
+            else:
+                priority = 5
+            return (priority, issue.title or "")
+
+        sorted_issues = sorted(project_issues, key=sort_key)
+
+        # Render each issue as a bullet point
+        for issue in sorted_issues:
+            status = _format_status(issue)
+            title = issue.title or "(Untitled)"
+
+            # Build issue line with optional metadata
+            parts = [f"  • {title}"]
+
+            metadata: list[str] = []
+            if issue.team_key:
+                metadata.append(f"{Fore.MAGENTA}{issue.team_key}{Style.RESET_ALL}")
+            if issue.branch:
+                metadata.append(f"{Fore.BLUE}{issue.branch}{Style.RESET_ALL}")
+
+            if metadata:
+                parts.append(f"  {Style.DIM}({', '.join(metadata)}){Style.RESET_ALL}")
+
+            parts.append(f"  {status}")
+
+            issue_line = " ".join(parts)
+            output_lines.append(issue_line)
+
+        output_lines.append("")
+
+    return "\n".join(output_lines)
+
+
+def run_list(path: Path, verbose: bool = False, by_project: bool = False) -> int:
     manifest_files = _discover_manifest_files(path)
     if not manifest_files:
         raise RuntimeError(f"No YAML files found in {path}")
@@ -607,7 +675,10 @@ def run_list(path: Path, verbose: bool = False) -> int:
         print("No issues found.")
         return 0
 
-    print(_render_issue_table(issues, verbose=verbose))
+    if by_project:
+        print(_render_by_project(issues))
+    else:
+        print(_render_issue_table(issues, verbose=verbose))
     return 0
 
 
@@ -707,6 +778,12 @@ def build_parser() -> argparse.ArgumentParser:
         "-v",
         action="store_true",
         help="Include full descriptions in the output.",
+    )
+    list_parser.add_argument(
+        "--by-project",
+        "-p",
+        action="store_true",
+        help="Group tickets by project instead of showing table view.",
     )
 
     check_parser = subparsers.add_parser(
@@ -871,7 +948,7 @@ def main(argv: list[str] | None = None) -> int:
     elif args.command == "list":
         try:
             path = args.path if args.path is not None else _get_tasks_directory()
-            return run_list(path, verbose=args.verbose)
+            return run_list(path, verbose=args.verbose, by_project=args.by_project)
         except Exception as exc:  # pragma: no cover - top-level handler
             parser.error(str(exc))
             return 1

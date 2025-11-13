@@ -31,6 +31,7 @@ class ManifestDefaults:
     priority: int | None = None
     branch: str | None = None
     worktree: str | None = None
+    project: str | None = None
 
 
 @dataclass
@@ -300,6 +301,7 @@ def _parse_defaults(data: Any) -> ManifestDefaults:
         priority=_optional_int(data.get("priority")),
         branch=_optional_str(data.get("branch")),
         worktree=_optional_str(data.get("worktree")),
+        project=_optional_str(data.get("project")),
     )
 
 
@@ -340,7 +342,7 @@ def _parse_issue(data: Any, defaults: ManifestDefaults, index: int) -> IssueSpec
     complete = bool(complete_raw) if complete_raw is not None else False
     branch = _optional_str(data.get("branch")) or defaults.branch
     worktree = _optional_str(data.get("worktree")) or defaults.worktree
-    project_name = _optional_str(data.get("project_name"))
+    project_name = _optional_str(data.get("project_name") or data.get("project")) or defaults.project
     project_id = _optional_str(data.get("project_id"))
 
     return IssueSpec(
