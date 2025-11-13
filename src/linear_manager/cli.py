@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import shutil
 import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -477,9 +478,29 @@ def _wrap_text(text: str, max_width: int) -> list[str]:
 
 
 def _table_lines(headers: list[str], rows: Iterable[list[str]]) -> list[str]:
-    # Define maximum column widths (adjust these as needed)
-    # Title, Team, Project, Labels, Branch, Worktree, Description, Status
-    max_column_widths = [30, 8, 15, 20, 20, 25, 30, 15]
+    # Get terminal width, defaulting to 120 if unable to determine
+    terminal_width = shutil.get_terminal_size(fallback=(120, 24)).columns
+
+    # Reserve space for borders and separators (3 chars per column + 4 for borders)
+    num_columns = len(headers)
+    separator_space = (num_columns * 3) + 4
+    available_width = max(terminal_width - separator_space, num_columns * 5)  # At least 5 chars per column
+
+    # Define relative weights for each column based on typical content size
+    # These weights determine how much of the available width each column gets
+    column_weights_map = {
+        8: [25, 8, 15, 20, 20, 25, 30, 15],  # Full view with description
+        7: [25, 8, 15, 20, 20, 30, 18],       # Compact view without description
+    }
+
+    column_weights = column_weights_map.get(num_columns, [100 // num_columns] * num_columns)
+    total_weight = sum(column_weights)
+
+    # Calculate actual column widths based on available space and weights
+    max_column_widths = [
+        max(5, int(available_width * weight / total_weight))
+        for weight in column_weights
+    ]
 
     # Wrap text in all cells and split into lines
     split_rows: list[list[list[str]]] = []
