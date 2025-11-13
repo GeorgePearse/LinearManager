@@ -753,7 +753,7 @@ def _render_box_for_issue(issue: IssueSpec | None, title: str) -> str:
     return "\n".join(lines)
 
 
-def run_list(path: Path, verbose: bool = False, by_project: bool = False, by_block: bool = False) -> int:
+def run_list(path: Path, verbose: bool = False, by_project: bool = False, by_block: bool = False, include_done: bool = False) -> int:
     manifest_files = _discover_manifest_files(path)
     if not manifest_files:
         raise RuntimeError(f"No YAML files found in {path}")
@@ -765,6 +765,24 @@ def run_list(path: Path, verbose: bool = False, by_project: bool = False, by_blo
 
     if not issues:
         print("No issues found.")
+        return 0
+
+    # Filter out completed tickets unless include_done is True
+    if not include_done:
+        done_states = {
+            "done",
+            "completed",
+            "complete",
+            "closed",
+            "resolved",
+        }
+        issues = [
+            issue for issue in issues
+            if (issue.state or "").lower() not in done_states
+        ]
+
+    if not issues:
+        print("No active issues found. Use --include-done to show completed tickets.")
         return 0
 
     if by_block:
@@ -884,6 +902,12 @@ def build_parser() -> argparse.ArgumentParser:
         "-b",
         action="store_true",
         help="Show tickets grouped by blocking relationships in a visual tree format.",
+    )
+    list_parser.add_argument(
+        "--include-done",
+        "-d",
+        action="store_true",
+        help="Include completed tickets in the list (by default, completed tickets are hidden).",
     )
 
     check_parser = subparsers.add_parser(
@@ -1048,7 +1072,7 @@ def main(argv: list[str] | None = None) -> int:
     elif args.command == "list":
         try:
             path = args.path if args.path is not None else _get_tasks_directory()
-            return run_list(path, verbose=args.verbose, by_project=args.by_project, by_block=args.by_block)
+            return run_list(path, verbose=args.verbose, by_project=args.by_project, by_block=args.by_block, include_done=args.include_done)
         except Exception as exc:  # pragma: no cover - top-level handler
             parser.error(str(exc))
             return 1
