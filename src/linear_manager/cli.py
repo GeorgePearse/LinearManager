@@ -669,7 +669,91 @@ def _render_by_project(issues: list[IssueSpec]) -> str:
     return "\n".join(output_lines)
 
 
-def run_list(path: Path, verbose: bool = False, by_project: bool = False) -> int:
+def _render_by_block(issues: list[IssueSpec]) -> str:
+    """Render issues grouped by blocking relationships."""
+    # Build a map of issue titles to issues for quick lookup
+    issue_map: dict[str, IssueSpec] = {issue.title: issue for issue in issues}
+
+    # Find all blocking issues (those that are mentioned in blocked_by)
+    blockers: set[str] = set()
+    for issue in issues:
+        blockers.update(issue.blocked_by)
+
+    # Find issues that have blocked_by relationships
+    blocked_issues: list[IssueSpec] = [issue for issue in issues if issue.blocked_by]
+
+    if not blocked_issues:
+        return f"{Fore.YELLOW}No blocking relationships found.{Style.RESET_ALL}\n"
+
+    output_lines: list[str] = []
+    output_lines.append(f"\n{Fore.CYAN}{Style.BRIGHT}# Blocking Relationships{Style.RESET_ALL}\n")
+
+    # Group blocked issues by their blockers
+    from collections import defaultdict
+    blocker_to_blocked: dict[str, list[IssueSpec]] = defaultdict(list)
+    for issue in blocked_issues:
+        for blocker in issue.blocked_by:
+            blocker_to_blocked[blocker].append(issue)
+
+    # Render each blocking relationship
+    for blocker_title in sorted(blocker_to_blocked.keys()):
+        blocked_list = blocker_to_blocked[blocker_title]
+
+        # Check if the blocker is an actual ticket in our list
+        blocker_issue = issue_map.get(blocker_title)
+
+        # Render the blocker box
+        output_lines.append(_render_box_for_issue(blocker_issue, blocker_title))
+        output_lines.append(f"{Fore.CYAN}{'':>20}⬆️  blocks{Style.RESET_ALL}")
+
+        # Render each blocked issue
+        for blocked_issue in blocked_list:
+            output_lines.append(_render_box_for_issue(blocked_issue, blocked_issue.title))
+
+        output_lines.append("")
+
+    return "\n".join(output_lines)
+
+
+def _render_box_for_issue(issue: IssueSpec | None, title: str) -> str:
+    """Render a single issue in a box format."""
+    box_width = 45
+
+    # Truncate title if too long
+    display_title = title if len(title) <= box_width - 4 else title[:box_width - 7] + "..."
+
+    lines: list[str] = []
+    lines.append(f"{Fore.CYAN}┌{'─' * (box_width - 2)}┐{Style.RESET_ALL}")
+    lines.append(f"{Fore.CYAN}│{Style.RESET_ALL} {display_title:<{box_width - 4}} {Fore.CYAN}│{Style.RESET_ALL}")
+
+    if issue:
+        # Add labels if present
+        if issue.labels:
+            labels_str = ", ".join(issue.labels)
+            if len(labels_str) > box_width - 6:
+                labels_str = labels_str[:box_width - 9] + "..."
+            lines.append(f"{Fore.CYAN}│{Style.RESET_ALL} {Fore.BLUE}[{labels_str}]{Style.RESET_ALL}{' ' * (box_width - len(labels_str) - 7)}{Fore.CYAN}│{Style.RESET_ALL}")
+
+        # Add priority if set
+        if issue.priority is not None:
+            priority_names = {0: "None", 1: "Low", 2: "Medium", 3: "High", 4: "Urgent"}
+            priority_str = f"Priority: {priority_names.get(issue.priority, str(issue.priority))}"
+            lines.append(f"{Fore.CYAN}│{Style.RESET_ALL} {priority_str:<{box_width - 4}} {Fore.CYAN}│{Style.RESET_ALL}")
+
+        # Add state if present
+        if issue.state:
+            state_str = f"State: {issue.state}"
+            lines.append(f"{Fore.CYAN}│{Style.RESET_ALL} {state_str:<{box_width - 4}} {Fore.CYAN}│{Style.RESET_ALL}")
+    else:
+        # Issue not found in our list
+        lines.append(f"{Fore.CYAN}│{Style.RESET_ALL} {Fore.YELLOW}(External dependency){Style.RESET_ALL}{' ' * (box_width - 25)}{Fore.CYAN}│{Style.RESET_ALL}")
+
+    lines.append(f"{Fore.CYAN}└{'─' * (box_width - 2)}┘{Style.RESET_ALL}")
+
+    return "\n".join(lines)
+
+
+def run_list(path: Path, verbose: bool = False, by_project: bool = False, by_block: bool = False) -> int:
     manifest_files = _discover_manifest_files(path)
     if not manifest_files:
         raise RuntimeError(f"No YAML files found in {path}")
@@ -683,7 +767,9 @@ def run_list(path: Path, verbose: bool = False, by_project: bool = False) -> int
         print("No issues found.")
         return 0
 
-    if by_project:
+    if by_block:
+        print(_render_by_block(issues))
+    elif by_project:
         print(_render_by_project(issues))
     else:
         print(_render_issue_table(issues, verbose=verbose))
@@ -792,6 +878,12 @@ def build_parser() -> argparse.ArgumentParser:
         "-p",
         action="store_true",
         help="Group tickets by project instead of showing table view.",
+    )
+    list_parser.add_argument(
+        "--by-block",
+        "-b",
+        action="store_true",
+        help="Show tickets grouped by blocking relationships in a visual tree format.",
     )
 
     check_parser = subparsers.add_parser(
@@ -956,7 +1048,7 @@ def main(argv: list[str] | None = None) -> int:
     elif args.command == "list":
         try:
             path = args.path if args.path is not None else _get_tasks_directory()
-            return run_list(path, verbose=args.verbose, by_project=args.by_project)
+            return run_list(path, verbose=args.verbose, by_project=args.by_project, by_block=args.by_block)
         except Exception as exc:  # pragma: no cover - top-level handler
             parser.error(str(exc))
             return 1

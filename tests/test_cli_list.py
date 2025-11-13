@@ -144,3 +144,127 @@ def test_list_errors_for_missing_path() -> None:
     with pytest.raises(SystemExit) as excinfo:
         main(["list", "does-not-exist.yaml"])
     assert excinfo.value.code == 2
+
+
+def test_list_by_block_shows_blocking_relationships(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Test that --by-block shows blocking relationships in box format."""
+    manifest_dir = tmp_path / "manifests"
+    manifest_dir.mkdir()
+
+    # Create a blocker ticket
+    _write_manifest(
+        manifest_dir / "blocker.yaml",
+        """
+        defaults:
+          team_key: ENG
+
+        issues:
+          - title: Deploy infrastructure
+            description: Set up the infrastructure
+            priority: 3
+            labels:
+              - Infrastructure
+              - Deployment
+        """,
+    )
+
+    # Create a blocked ticket
+    _write_manifest(
+        manifest_dir / "blocked.yaml",
+        """
+        defaults:
+          team_key: ENG
+
+        issues:
+          - title: Implement feature X
+            description: Feature that depends on infrastructure
+            priority: 2
+            state: Todo
+            blocked_by:
+              - "Deploy infrastructure"
+        """,
+    )
+
+    result = main(["list", str(manifest_dir), "--by-block"])
+
+    assert result == 0
+    out = capsys.readouterr().out
+    clean_out = _strip_ansi(out)
+
+    # Check for blocking relationship header
+    assert "Blocking Relationships" in clean_out
+
+    # Check for blocker box
+    assert "Deploy infrastructure" in clean_out
+    assert "Infrastructure" in clean_out
+    assert "Priority: High" in clean_out or "High" in clean_out
+
+    # Check for blocks indicator
+    assert "blocks" in clean_out
+
+    # Check for blocked box
+    assert "Implement feature X" in clean_out
+    assert "Priority: Medium" in clean_out or "Medium" in clean_out
+    assert "State: Todo" in clean_out or "Todo" in clean_out
+
+
+def test_list_by_block_shows_external_dependencies(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Test that --by-block shows external dependencies correctly."""
+    manifest = tmp_path / "issues.yaml"
+    _write_manifest(
+        manifest,
+        """
+        defaults:
+          team_key: ENG
+
+        issues:
+          - title: Implement feature Y
+            description: Feature blocked by external dependency
+            blocked_by:
+              - "Third-party API availability"
+        """,
+    )
+
+    result = main(["list", str(manifest), "--by-block"])
+
+    assert result == 0
+    out = capsys.readouterr().out
+    clean_out = _strip_ansi(out)
+
+    # Check for external dependency marker
+    assert "Third-party API availability" in clean_out
+    assert "External dependency" in clean_out
+
+    # Check for blocked issue
+    assert "Implement feature Y" in clean_out
+
+
+def test_list_by_block_no_relationships(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Test that --by-block handles tickets with no blocking relationships."""
+    manifest = tmp_path / "issues.yaml"
+    _write_manifest(
+        manifest,
+        """
+        defaults:
+          team_key: ENG
+
+        issues:
+          - title: Standalone feature
+            description: Feature with no blockers
+        """,
+    )
+
+    result = main(["list", str(manifest), "--by-block"])
+
+    assert result == 0
+    out = capsys.readouterr().out
+    clean_out = _strip_ansi(out)
+
+    # Should show message about no blocking relationships
+    assert "No blocking relationships found" in clean_out
