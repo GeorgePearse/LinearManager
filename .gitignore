@@ -38,3 +38,4 @@ tasks/
 
 # Worktrees directory (managed git worktrees)
 worktrees/
+.env
