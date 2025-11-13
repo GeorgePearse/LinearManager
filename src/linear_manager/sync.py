@@ -48,6 +48,8 @@ class IssueSpec:
     complete: bool
     branch: str | None = None
     worktree: str | None = None
+    project_name: str | None = None
+    project_id: str | None = None
 
 
 @dataclass
@@ -145,6 +147,12 @@ def run_pull(team_keys: list[str], output_dir: Path, limit: int = 100) -> None:
                 branch_name = issue_data.get("branchName")
                 if branch_name:
                     spec["branch"] = branch_name
+
+                # Add project if present
+                project = issue_data.get("project")
+                if project:
+                    spec["project_name"] = project.get("name")
+                    spec["project_id"] = project.get("id")
 
                 issue_specs.append(spec)
 
@@ -332,6 +340,8 @@ def _parse_issue(data: Any, defaults: ManifestDefaults, index: int) -> IssueSpec
     complete = bool(complete_raw) if complete_raw is not None else False
     branch = _optional_str(data.get("branch")) or defaults.branch
     worktree = _optional_str(data.get("worktree")) or defaults.worktree
+    project_name = _optional_str(data.get("project_name"))
+    project_id = _optional_str(data.get("project_id"))
 
     return IssueSpec(
         title=title,
@@ -345,6 +355,8 @@ def _parse_issue(data: Any, defaults: ManifestDefaults, index: int) -> IssueSpec
         complete=complete,
         branch=branch,
         worktree=worktree,
+        project_name=project_name,
+        project_id=project_id,
     )
 
 
@@ -686,6 +698,11 @@ query FetchTeamIssues($teamKey: String!, $first: Int!, $after: String) {
             }
           }
           branchName
+          project {
+            id
+            name
+            description
+          }
         }
         pageInfo {
           hasNextPage
