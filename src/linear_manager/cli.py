@@ -767,7 +767,7 @@ def run_list(path: Path, verbose: bool = False, by_project: bool = False, by_blo
         print("No issues found.")
         return 0
 
-    # Filter out completed tickets unless include_done is True
+    # Filter out completed and cancelled tickets unless include_done is True
     if not include_done:
         done_states = {
             "done",
@@ -776,13 +776,20 @@ def run_list(path: Path, verbose: bool = False, by_project: bool = False, by_blo
             "closed",
             "resolved",
         }
+        cancelled_states = {
+            "canceled",
+            "cancelled",
+            "abandoned",
+            "declined",
+        }
+        excluded_states = done_states | cancelled_states
         issues = [
             issue for issue in issues
-            if (issue.state or "").lower() not in done_states
+            if (issue.state or "").lower() not in excluded_states
         ]
 
     if not issues:
-        print("No active issues found. Use --include-done to show completed tickets.")
+        print("No active issues found. Use --include-done to show completed and cancelled tickets.")
         return 0
 
     if by_block:
