@@ -643,14 +643,14 @@ def run_add(
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="manager",
-        description="Sync YAML-defined issues to Linear.",
+        description="Bidirectional sync tool for Linear issues. Push local YAML files to Linear or pull Linear issues to local YAML files.",
     )
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
     # sync subcommand
     sync_parser = subparsers.add_parser(
         "sync",
-        help="Sync YAML file(s) to Linear",
+        help="Push local YAML file(s) to Linear (create/update issues)",
     )
     sync_parser.add_argument(
         "path",
@@ -756,7 +756,7 @@ def build_parser() -> argparse.ArgumentParser:
     # pull subcommand
     pull_parser = subparsers.add_parser(
         "pull",
-        help="Pull issues from Linear and save them as local YAML files.",
+        help="Pull issues from Linear to local YAML files (read-only download)",
     )
     pull_parser.add_argument(
         "--team-keys",

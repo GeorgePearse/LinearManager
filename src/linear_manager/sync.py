@@ -1,4 +1,4 @@
-"""Core sync logic for LinearManager."""
+"""Core sync logic for LinearManager - supports both push (to Linear) and pull (from Linear) operations."""
 
 from __future__ import annotations
 

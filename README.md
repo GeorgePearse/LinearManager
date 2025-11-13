@@ -2,6 +2,10 @@
 
 Even using the Linear MCP can slow down your work nowadays. This is a simple quick solution so that maintaining your tickets doesn't take you out of your flow.
 
+**LinearManager supports both push and pull operations:**
+- **Push (sync)**: Upload local YAML files to Linear to create/update issues
+- **Pull**: Download issues from Linear to local YAML files
+
 <img width="1845" height="661" alt="image" src="https://github.com/user-attachments/assets/bb37838c-3cc2-4d60-a9a9-6e1c8f48d005" />
 
 
@@ -100,25 +104,31 @@ issues:
     state: In Progress  # Sets the issue to "In Progress" state
 ```
 
-## Syncing
+## Bidirectional Sync Operations
+
+LinearManager provides both **push** and **pull** operations for complete control over your Linear tickets.
+
+### Push to Linear (sync command)
+
+Upload local YAML files to Linear to create or update issues:
 
 ```bash
-# Sync all YAML files in current directory
+# Push all YAML files in current directory to Linear
 manager sync .
 
-# Sync all YAML files in a specific directory
+# Push all YAML files in a specific directory
 manager sync path/to/manifests
 
-# Sync a single file
+# Push a single file
 manager sync path/to/issues.yaml
 
-# Preview changes without syncing
+# Preview changes without pushing
 manager sync . --dry-run
 ```
 
-## Pulling Issues from Linear
+### Pull from Linear (pull command)
 
-The `pull` command allows you to download issues from Linear and save them as local YAML files, without pushing any local changes back to Linear.
+Download issues from Linear and save them as local YAML files:
 
 ```bash
 # Pull issues from a specific team
@@ -139,17 +149,43 @@ Options:
 - `--output` / `-o`: Directory to save YAML files (defaults to LinearManager/tasks)
 - `--limit`: Maximum number of issues to fetch per team (default: 100)
 
-The pull command will:
-1. Fetch issues from Linear for the specified teams
-2. Create one YAML file per team (e.g., `eng_issues.yaml`)
-3. Include all issue metadata: identifier, title, description, state, priority, assignee, labels, and branch name
-4. Never upload local changes - it's read-only from Linear
+The pull command:
+- Downloads issues from Linear for specified teams
+- Creates one YAML file per team (e.g., `eng_issues.yaml`)
+- Includes all issue metadata: identifier, title, description, state, priority, assignee, labels, and branch name
+- Is read-only - doesn't push any local changes to Linear
 
-This is useful for:
-- Backing up Linear issues locally
-- Analyzing issues offline
-- Migrating issues between teams or projects
-- Creating templates from existing issues
+### Common Workflows
+
+**Backup Linear issues:**
+```bash
+# Pull all issues from your teams for backup
+manager pull --team-keys ENG PROD DESIGN --output ./backups/$(date +%Y%m%d)
+```
+
+**Update local copies then push changes:**
+```bash
+# 1. Pull latest issues from Linear
+manager pull --team-keys ENG --output ./tasks
+
+# 2. Edit the YAML files locally
+# ... make your changes ...
+
+# 3. Push changes back to Linear
+manager sync ./tasks
+```
+
+**Migrate issues between teams:**
+```bash
+# 1. Pull from source team
+manager pull --team-keys OLD_TEAM --output ./migration
+
+# 2. Edit YAML to change team_key
+# ... update team_key in files ...
+
+# 3. Push to new team
+manager sync ./migration
+```
 
 > **Note**: We plan to integrate with [par](https://github.com/your-username/par) for enhanced parallel processing and workflow automation.
 
