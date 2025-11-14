@@ -15,8 +15,6 @@ def _write_manifest(path: Path, content: str) -> None:
 def test_check_tests_updates_manifest(monkeypatch, tmp_path, capsys) -> None:
     manifests = tmp_path / "manifests"
     manifests.mkdir()
-    worktrees = tmp_path / "worktrees" / "feature"
-    worktrees.mkdir(parents=True)
 
     manifest = manifests / "issue.yaml"
     _write_manifest(
@@ -25,7 +23,6 @@ def test_check_tests_updates_manifest(monkeypatch, tmp_path, capsys) -> None:
         team_key: ENG
         title: Example task
         branch: feature/example
-        worktree: ../worktrees/feature
         """,
     )
 
@@ -53,7 +50,9 @@ def test_check_tests_updates_manifest(monkeypatch, tmp_path, capsys) -> None:
     result = main(["check", "tests", str(manifests)])
 
     assert result == 0
-    assert calls == [(worktrees.resolve(), "feature/example")]
+    # Check uses current directory now
+    assert len(calls) == 1
+    assert calls[0][1] == "feature/example"
 
     out = _strip_ansi(capsys.readouterr().out)
     assert "issue.yaml" in out
@@ -64,7 +63,6 @@ def test_check_tests_updates_manifest(monkeypatch, tmp_path, capsys) -> None:
     assert tests["pass_or_fail"] == "pass"
     assert tests.get("failure_reason") in (None, "")
     assert tests["branch"] == "feature/example"
-    assert tests["worktree"].endswith("worktrees/feature")
     assert tests["details"][0]["name"] == "ci"
     assert "checked_at" in tests
 

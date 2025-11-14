@@ -84,7 +84,6 @@ class TestIssueParsing:
         assert issue.assignee_email is None
         assert issue.priority is None
         assert issue.branch is None
-        assert issue.worktree is None
         assert issue.blocked_by == []
 
     def test_parse_full_issue(self) -> None:
@@ -99,7 +98,6 @@ class TestIssueParsing:
             "assignee_email": "dev@example.com",
             "priority": 2,
             "branch": "feature/test",
-            "worktree": "/repos/feature-test",
             "blocked_by": ["Model performance", "Database migration"],
         }
         issue = _parse_issue(data)
@@ -112,7 +110,6 @@ class TestIssueParsing:
         assert issue.assignee_email == "dev@example.com"
         assert issue.priority == 2
         assert issue.branch == "feature/test"
-        assert issue.worktree == "/repos/feature-test"
         assert issue.blocked_by == ["Model performance", "Database migration"]
 
     def test_parse_issue_missing_team_key(self) -> None:

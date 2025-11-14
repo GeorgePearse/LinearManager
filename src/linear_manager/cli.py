@@ -40,7 +40,6 @@ from linear_manager.operations import (
     run_pull,
 )
 from . import config
-from .git_worktree import GitWorktreeError, create_branch_and_worktree
 
 # Initialize colorama
 init(autoreset=True)
@@ -66,14 +65,6 @@ def _utc_timestamp() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def _resolve_worktree_path(manifest_path: Path, raw_path: str) -> Path:
-    """Resolve a worktree path relative to a manifest."""
-    candidate = Path(raw_path).expanduser()
-    if not candidate.is_absolute():
-        candidate = (manifest_path.parent / candidate).resolve()
-    return candidate
-
-
 def _status_color(status: str) -> str:
     """Map a status string to a representative color."""
     mapping: dict[str, str] = {
@@ -83,8 +74,6 @@ def _status_color(status: str) -> str:
         "skipped": str(Fore.BLUE),
         "cancelled": str(Fore.MAGENTA),
         "missing_branch": str(Fore.YELLOW),
-        "missing_worktree": str(Fore.YELLOW),
-        "worktree_not_found": str(Fore.YELLOW),
         "gh_missing": str(Fore.RED),
         "parse_error": str(Fore.RED),
         "error": str(Fore.RED),
@@ -219,25 +208,10 @@ def _evaluate_issue_tests(issue: dict[str, Any], manifest_path: Path) -> dict[st
         tests_entry["failure_reason"] = "Branch not specified in manifest."
         return tests_entry
 
-    worktree_raw = issue.get("worktree")
-    if not worktree_raw:
-        tests_entry["pass_or_fail"] = "missing_worktree"
-        tests_entry["failure_reason"] = (
-            f"No worktree path configured for branch '{branch}'."
-        )
-        tests_entry["branch"] = branch
-        return tests_entry
-
-    worktree_path = _resolve_worktree_path(manifest_path, str(worktree_raw))
     tests_entry["branch"] = branch
-    tests_entry["worktree"] = str(worktree_path)
 
-    if not worktree_path.exists():
-        tests_entry["pass_or_fail"] = "worktree_not_found"
-        tests_entry["failure_reason"] = f"Worktree path '{worktree_path}' not found."
-        return tests_entry
-
-    gh_result = _run_gh_checks(worktree_path, branch)
+    # Use current directory for gh checks
+    gh_result = _run_gh_checks(Path.cwd(), branch)
     tests_entry.update(gh_result)
     tests_entry.setdefault("pass_or_fail", "unknown")
     if tests_entry["pass_or_fail"] == "pass":
@@ -572,7 +546,6 @@ def _render_issue_table(issues: list[IssueSpec], verbose: bool = False) -> str:
             "Project",
             "Labels",
             "Branch",
-            "Worktree",
             "Description",
             "Status",
         ]
@@ -583,7 +556,6 @@ def _render_issue_table(issues: list[IssueSpec], verbose: bool = False) -> str:
                 issue.project_name or "",
                 ", ".join(issue.labels) if issue.labels else "",
                 issue.branch or "",
-                issue.worktree or "",
                 (issue.description or "").strip().splitlines()[0]
                 if issue.description
                 else "",
@@ -592,7 +564,7 @@ def _render_issue_table(issues: list[IssueSpec], verbose: bool = False) -> str:
             for issue in issues
         ]
     else:
-        headers = ["Title", "Team", "Project", "Labels", "Branch", "Worktree", "Status"]
+        headers = ["Title", "Team", "Project", "Labels", "Branch", "Status"]
         rows = [
             [
                 f"• {issue.title}",
@@ -600,7 +572,6 @@ def _render_issue_table(issues: list[IssueSpec], verbose: bool = False) -> str:
                 issue.project_name or "",
                 ", ".join(issue.labels) if issue.labels else "",
                 issue.branch or "",
-                issue.worktree or "",
                 _format_status(issue),
             ]
             for issue in issues
@@ -874,18 +845,11 @@ def run_add(
     filename = f"{timestamp}_{title.lower().replace(' ', '_')[:30]}.yaml"
     filepath = tasks_dir / filename
 
-    try:
-        branch_name, worktree_path = create_branch_and_worktree(title)
-    except GitWorktreeError as exc:
-        raise RuntimeError(f"Failed to create git worktree: {exc}") from exc
-
     # Build the issue data (flat structure)
     issue_dict: dict[str, Any] = {
         "team_key": team_key,
         "title": title,
         "description": description or "",
-        "branch": branch_name,
-        "worktree": str(worktree_path),
     }
 
     # Add optional fields if provided
@@ -904,8 +868,6 @@ def run_add(
     print(f"  {Fore.CYAN}File:{Style.RESET_ALL} {filepath}")
     print(f"  {Fore.CYAN}Title:{Style.RESET_ALL} {title}")
     print(f"  {Fore.CYAN}Team:{Style.RESET_ALL} {team_key}")
-    print(f"  {Fore.CYAN}Branch:{Style.RESET_ALL} {branch_name}")
-    print(f"  {Fore.CYAN}Worktree:{Style.RESET_ALL} {worktree_path}")
 
     return 0
 

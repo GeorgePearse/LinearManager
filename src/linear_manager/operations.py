@@ -33,7 +33,6 @@ class IssueSpec:
     assignee_email: str | None
     priority: int | None
     branch: str | None = None
-    worktree: str | None = None
     project_name: str | None = None
     project_id: str | None = None
     blocked_by: list[str] = field(default_factory=list)
@@ -198,8 +197,6 @@ def _process_issue(
     context_notes: list[str] = []
     if spec.branch:
         context_notes.append(f"branch={spec.branch}")
-    if spec.worktree:
-        context_notes.append(f"worktree={spec.worktree}")
     if spec.blocked_by:
         context_notes.append(f"blocked_by={', '.join(spec.blocked_by)}")
     if context_notes:
@@ -320,7 +317,6 @@ def _parse_issue(data: Any) -> IssueSpec:
     assignee_email = _optional_str(data.get("assignee_email"))
     priority = _optional_int(data.get("priority"), allow_none=True)
     branch = _optional_str(data.get("branch"))
-    worktree = _optional_str(data.get("worktree"))
     project_name = _optional_str(data.get("project_name"))
     project_id = _optional_str(data.get("project_id"))
 
@@ -343,7 +339,6 @@ def _parse_issue(data: Any) -> IssueSpec:
         assignee_email=assignee_email,
         priority=priority,
         branch=branch,
-        worktree=worktree,
         project_name=project_name,
         project_id=project_id,
         blocked_by=blocked_by,

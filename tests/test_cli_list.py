@@ -25,7 +25,6 @@ def test_list_outputs_table_for_manifest(
         title: Refactor login flow
         description: Improve login sequence for oauth integrations
         branch: feature/login-flow
-        worktree: ../worktrees/login-flow
         state: In Progress
         """,
     )
@@ -40,8 +39,6 @@ def test_list_outputs_table_for_manifest(
     # Title may be wrapped across lines, so check for key parts
     assert "Refactor" in clean_out
     assert "login" in clean_out and "flow" in clean_out
-    # Check for worktree path (may be wrapped)
-    assert "worktrees" in clean_out and "login" in clean_out
     # Check for branch (should be present by default)
     assert "feature" in clean_out and "flow" in clean_out
     # Description should NOT be present without --verbose
@@ -61,7 +58,6 @@ def test_list_uses_defaults_and_marks_complete(
         title: Common refactor
         description: Update shared helpers
         branch: feature/common
-        worktree: ../worktrees/common
         state: Done
         """,
     )
@@ -83,8 +79,6 @@ def test_list_uses_defaults_and_marks_complete(
     clean_out = _strip_ansi(out)
     # Title may be wrapped across lines, so check for key parts
     assert "Common" in clean_out and "refactor" in clean_out
-    # Check for worktree path (may be wrapped)
-    assert "worktrees/common" in clean_out or "common" in clean_out
     # Check for branch (should be present by default)
     assert "feature/common" in clean_out or "common" in clean_out
     # Description should NOT be present without --verbose
@@ -106,7 +100,6 @@ def test_list_verbose_shows_descriptions(
         title: Refactor login flow
         description: Improve login sequence for oauth integrations
         branch: feature/login-flow
-        worktree: ../worktrees/login-flow
         state: In Progress
         """,
     )
@@ -120,8 +113,6 @@ def test_list_verbose_shows_descriptions(
     assert "Title" in clean_out
     # Title may be wrapped across lines, so check for key parts
     assert "Refactor" in clean_out and "login" in clean_out and "flow" in clean_out
-    # Check for worktree path (may be wrapped)
-    assert "worktrees" in clean_out and "login" in clean_out
     # Check for branch and description (should both be present with --verbose)
     assert "feature" in clean_out and "flow" in clean_out
     assert "Improve" in clean_out
