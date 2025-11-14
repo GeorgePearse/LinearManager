@@ -26,7 +26,7 @@ def test_list_outputs_table_for_manifest(
         description: Improve login sequence for oauth integrations
         branch: feature/login-flow
         worktree: ../worktrees/login-flow
-        status: In Progress
+        state: In Progress
         """,
     )
 
@@ -107,7 +107,7 @@ def test_list_verbose_shows_descriptions(
         description: Improve login sequence for oauth integrations
         branch: feature/login-flow
         worktree: ../worktrees/login-flow
-        status: In Progress
+        state: In Progress
         """,
     )
 

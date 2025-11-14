@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 from linear_manager.operations import (
-    _load_manifest,
+    load_manifest,
     _parse_issue,
     _optional_str,
     _require_str,
@@ -35,7 +35,7 @@ priority: 2
             path = Path(f.name)
 
         try:
-            manifest = _load_manifest(path)
+            manifest = load_manifest(path)
             assert len(manifest.issues) == 1
             assert manifest.issues[0].title == "Test Issue"
             assert manifest.issues[0].team_key == "ENG"
@@ -46,13 +46,13 @@ priority: 2
     def test_load_manifest_nonexistent_file(self) -> None:
         """Test loading a manifest from a nonexistent path."""
         with pytest.raises(RuntimeError, match="does not exist"):
-            _load_manifest(Path("/nonexistent/path.yaml"))
+            load_manifest(Path("/nonexistent/path.yaml"))
 
     def test_load_manifest_directory(self) -> None:
         """Test loading a manifest from a directory path."""
         with tempfile.TemporaryDirectory() as tmpdir:
             with pytest.raises(RuntimeError, match="is a directory"):
-                _load_manifest(Path(tmpdir))
+                load_manifest(Path(tmpdir))
 
     def test_load_empty_manifest(self) -> None:
         """Test loading an empty YAML file."""
@@ -63,7 +63,7 @@ priority: 2
 
         try:
             with pytest.raises(RuntimeError, match="is empty"):
-                _load_manifest(path)
+                load_manifest(path)
         finally:
             path.unlink()
 
@@ -127,16 +127,6 @@ class TestIssueParsing:
         with pytest.raises(RuntimeError, match="'title' is required"):
             _parse_issue(data)
 
-    def test_parse_issue_with_id_alias(self) -> None:
-        """Test that 'id' is accepted as alias for 'identifier'."""
-        data: dict[str, str] = {
-            "title": "Test Issue",
-            "team_key": "ENG",
-            "id": "ENG-123",
-        }
-        issue = _parse_issue(data)
-        assert issue.identifier == "ENG-123"
-
     def test_parse_issue_labels_dedupe(self) -> None:
         """Test that duplicate labels are removed (case-insensitive)."""
         data = {
@@ -146,27 +136,6 @@ class TestIssueParsing:
         }
         issue = _parse_issue(data)
         assert issue.labels == ["Bug", "Frontend"]
-
-    def test_parse_issue_with_status_alias(self) -> None:
-        """Test that 'status' is accepted as alias for 'state'."""
-        data: dict[str, str] = {
-            "title": "Test Issue",
-            "team_key": "ENG",
-            "status": "Done",
-        }
-        issue = _parse_issue(data)
-        assert issue.state == "Done"
-
-    def test_parse_issue_status_overrides_state(self) -> None:
-        """Test that 'status' takes precedence when both are provided."""
-        data: dict[str, str] = {
-            "title": "Test Issue",
-            "team_key": "ENG",
-            "state": "Todo",
-            "status": "Done",
-        }
-        issue = _parse_issue(data)
-        assert issue.state == "Done"
 
     def test_parse_issue_blocked_by_dedupe(self) -> None:
         """Test that duplicate blocked_by items are removed (case-insensitive)."""

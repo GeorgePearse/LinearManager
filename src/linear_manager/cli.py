@@ -1070,18 +1070,6 @@ def build_parser() -> argparse.ArgumentParser:
         help="Maximum number of issues to fetch per team (default: 100)",
     )
 
-    # Legacy: direct file argument (for backwards compatibility)
-    parser.add_argument(
-        "manifest",
-        type=Path,
-        nargs="?",
-        help="Path to YAML manifest (legacy, use 'sync' subcommand instead).",
-    )
-    parser.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="Validate manifest without writing to Linear.",
-    )
     return parser
 
 
@@ -1130,6 +1118,12 @@ def main(argv: list[str] | None = None) -> int:
                 manifest_path=path,
                 dry_run=args.dry_run,
             )
+            try:
+                run_push(config)
+                return 0
+            except Exception as exc:  # pragma: no cover - top-level handler
+                parser.error(str(exc))
+                return 1
     elif args.command == "list":
         try:
             path = args.path if args.path is not None else _get_tasks_directory()
@@ -1181,21 +1175,10 @@ def main(argv: list[str] | None = None) -> int:
             parser.error(str(exc))
             return 1
     else:
-        # Legacy mode: direct file argument
-        if not args.manifest:
-            parser.print_help()
-            return 1
-
-        config = PushConfig(
-            manifest_path=args.manifest,
-            dry_run=args.dry_run,
-        )
-
-    try:
-        run_push(config)
-    except Exception as exc:  # pragma: no cover - top-level handler
-        parser.error(str(exc))
+        # No command provided
+        parser.print_help()
         return 1
+
     return 0
 
 

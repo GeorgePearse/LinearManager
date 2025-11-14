@@ -258,18 +258,14 @@ def load_manifest(path: Path) -> Manifest:
     return Manifest(issues=[issue])
 
 
-# Backwards compatibility for callers that may still import the private name.
-_load_manifest = load_manifest
-
-
 def _parse_issue(data: Any) -> IssueSpec:
     if not isinstance(data, dict):
         raise RuntimeError("Manifest must be a mapping.")
 
     title = _require_str(data.get("title"), "'title' is required.")
     description = _optional_str(data.get("description")) or ""
-    identifier = _optional_str(data.get("identifier") or data.get("id"))
-    state = _optional_str(data.get("status") or data.get("state"))
+    identifier = _optional_str(data.get("identifier"))
+    state = _optional_str(data.get("state"))
     team_key = _optional_str(data.get("team_key"))
     if not team_key:
         raise RuntimeError("'team_key' is required.")
@@ -282,14 +278,14 @@ def _parse_issue(data: Any) -> IssueSpec:
     ]
     labels = _dedupe(labels)
 
-    assignee_email = _optional_str(data.get("assignee_email") or data.get("assignee"))
+    assignee_email = _optional_str(data.get("assignee_email"))
     priority = _optional_int(data.get("priority"), allow_none=True)
 
     complete_raw = data.get("complete")
     complete = bool(complete_raw) if complete_raw is not None else False
     branch = _optional_str(data.get("branch"))
     worktree = _optional_str(data.get("worktree"))
-    project_name = _optional_str(data.get("project_name") or data.get("project"))
+    project_name = _optional_str(data.get("project_name"))
     project_id = _optional_str(data.get("project_id"))
 
     blocked_by_raw = data.get("blocked_by") or []

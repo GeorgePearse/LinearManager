@@ -67,23 +67,23 @@ Key fields:
 - `team_key` (required) chooses the Linear team
 - `title` (required) is the issue title
 - `identifier` is optional; when present the CLI updates the existing issue instead of creating a new one
-- `state` or `status` (synonyms) set the Linear workflow state (e.g., "Todo", "In Progress", "Done")
+- `state` sets the Linear workflow state (e.g., "Todo", "In Progress", "Done")
 - `labels`, `assignee_email`, `priority` are optional fields
 - `branch` and `worktree` are optional helpers for tracking local development context so you can jump back into the work quickly later
 
 ## Setting Issue Status
 
-Use `state` or `status` to set the workflow state in Linear (they're synonyms):
+Use `state` to set the workflow state in Linear:
 
 ```yaml
 team_key: ENG
 identifier: ENG-123
 title: Fix critical bug
 description: Bug has been resolved
-status: Done  # Sets the issue to "Done" state in Linear
+state: Done  # Sets the issue to "Done" state in Linear
 ```
 
-Or using `state`:
+Example with workflow state:
 
 ```yaml
 team_key: ENG
@@ -177,10 +177,3 @@ manager push ./migration
 ```
 
 > **Note**: We plan to integrate with [par](https://github.com/your-username/par) for enhanced parallel processing and workflow automation.
-
-### Legacy mode
-
-The old single-file syntax still works for backwards compatibility:
-```bash
-manager path/to/issues.yaml
-```
