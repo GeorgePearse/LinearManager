@@ -117,7 +117,8 @@ def list_recent_issues(minutes: int = 5) -> list[dict[str, Any]]:
 
     # Filter to only issues created after the cutoff
     issues = [
-        issue for issue in all_issues
+        issue
+        for issue in all_issues
         if datetime.fromisoformat(issue["createdAt"].replace("Z", "+00:00")) > cutoff
     ]
 
@@ -127,7 +128,9 @@ def list_recent_issues(minutes: int = 5) -> list[dict[str, Any]]:
         created_at = datetime.fromisoformat(issue["createdAt"].replace("Z", "+00:00"))
         labels = [label["name"] for label in issue["labels"]["nodes"]]
         assignee = issue.get("assignee")
-        assignee_str = f"{assignee['name']} ({assignee['email']})" if assignee else "Unassigned"
+        assignee_str = (
+            f"{assignee['name']} ({assignee['email']})" if assignee else "Unassigned"
+        )
 
         print(f"ID: {issue['id']}")
         print(f"Identifier: {issue['identifier']}")

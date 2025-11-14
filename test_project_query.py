@@ -27,6 +27,7 @@ query TestProjectField($teamKey: String!) {
 }
 """
 
+
 def main():
     token = os.environ.get("LINEAR_API_KEY")
     if not token:
@@ -50,6 +51,7 @@ def main():
         print(json.dumps(result, indent=2))
 
     return 0
+
 
 if __name__ == "__main__":
     exit(main())

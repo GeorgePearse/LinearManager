@@ -29,10 +29,16 @@ except ImportError:  # pragma: no cover - fallback used in minimal environments
     def init(*_: object, **__: object) -> None:
         return None
 
-    Fore = _Color()
-    Style = _Style()
+    Fore = _Color()  # type: ignore
+    Style = _Style()  # type: ignore
 
-from linear_manager.operations import IssueSpec, PushConfig, load_manifest, run_push, run_pull
+from linear_manager.operations import (
+    IssueSpec,
+    PushConfig,
+    load_manifest,
+    run_push,
+    run_pull,
+)
 from . import config
 from .git_worktree import GitWorktreeError, create_branch_and_worktree
 
@@ -70,22 +76,22 @@ def _resolve_worktree_path(manifest_path: Path, raw_path: str) -> Path:
 
 def _status_color(status: str) -> str:
     """Map a status string to a representative color."""
-    mapping = {
-        "pass": Fore.GREEN,
-        "fail": Fore.RED,
-        "pending": Fore.YELLOW,
-        "skipped": Fore.BLUE,
-        "cancelled": Fore.MAGENTA,
-        "missing_branch": Fore.YELLOW,
-        "missing_worktree": Fore.YELLOW,
-        "worktree_not_found": Fore.YELLOW,
-        "gh_missing": Fore.RED,
-        "parse_error": Fore.RED,
-        "error": Fore.RED,
-        "no_checks": Fore.CYAN,
-        "unknown": Fore.CYAN,
+    mapping: dict[str, str] = {
+        "pass": str(Fore.GREEN),
+        "fail": str(Fore.RED),
+        "pending": str(Fore.YELLOW),
+        "skipped": str(Fore.BLUE),
+        "cancelled": str(Fore.MAGENTA),
+        "missing_branch": str(Fore.YELLOW),
+        "missing_worktree": str(Fore.YELLOW),
+        "worktree_not_found": str(Fore.YELLOW),
+        "gh_missing": str(Fore.RED),
+        "parse_error": str(Fore.RED),
+        "error": str(Fore.RED),
+        "no_checks": str(Fore.CYAN),
+        "unknown": str(Fore.CYAN),
     }
-    return mapping.get(status.lower(), Fore.CYAN)
+    return mapping.get(status.lower(), str(Fore.CYAN))
 
 
 def _summarize_check_buckets(checks: list[dict[str, Any]], exit_code: int) -> str:
@@ -435,7 +441,9 @@ def _format_status(issue: IssueSpec) -> str:
         parts.append(f"{Fore.GREEN}{Style.BRIGHT}☑{Style.RESET_ALL}")
     if issue.blocked_by:
         blocked_str = ", ".join(issue.blocked_by)
-        parts.append(f"{Fore.RED}{Style.BRIGHT}🚫{Style.RESET_ALL} {Style.DIM}Blocked by: {blocked_str}{Style.RESET_ALL}")
+        parts.append(
+            f"{Fore.RED}{Style.BRIGHT}🚫{Style.RESET_ALL} {Style.DIM}Blocked by: {blocked_str}{Style.RESET_ALL}"
+        )
     return " ".join(parts)
 
 
@@ -487,16 +495,20 @@ def _table_lines(headers: list[str], rows: Iterable[list[str]]) -> list[str]:
     # Reserve space for borders and separators (3 chars per column + 4 for borders)
     num_columns = len(headers)
     separator_space = (num_columns * 3) + 4
-    available_width = max(terminal_width - separator_space, num_columns * 5)  # At least 5 chars per column
+    available_width = max(
+        terminal_width - separator_space, num_columns * 5
+    )  # At least 5 chars per column
 
     # Define relative weights for each column based on typical content size
     # These weights determine how much of the available width each column gets
     column_weights_map = {
         8: [25, 8, 15, 20, 20, 25, 30, 15],  # Full view with description
-        7: [25, 8, 15, 20, 20, 30, 18],       # Compact view without description
+        7: [25, 8, 15, 20, 20, 30, 18],  # Compact view without description
     }
 
-    column_weights = column_weights_map.get(num_columns, [100 // num_columns] * num_columns)
+    column_weights = column_weights_map.get(
+        num_columns, [100 // num_columns] * num_columns
+    )
     total_weight = sum(column_weights)
 
     # Calculate actual column widths based on available space and weights
@@ -527,7 +539,7 @@ def _table_lines(headers: list[str], rows: Iterable[list[str]]) -> list[str]:
                 *(_visible_length(line) for line in cell_lines),
             )
 
-    def build_rule(char: str, color: str = Fore.CYAN) -> str:
+    def build_rule(char: str, color: str = str(Fore.CYAN)) -> str:
         rule = "+" + "+".join(char * (width + 2) for width in widths) + "+"
         return f"{color}{rule}{Style.RESET_ALL}"
 
@@ -554,7 +566,7 @@ def _table_lines(headers: list[str], rows: Iterable[list[str]]) -> list[str]:
 
     all_lines: list[str] = [build_rule("-")]
     all_lines.extend(render_row(split_rows[0], is_header=True))
-    all_lines.append(build_rule("=", Fore.CYAN))
+    all_lines.append(build_rule("=", str(Fore.CYAN)))
     for row_cells in split_rows[1:]:
         all_lines.extend(render_row(row_cells))
     all_lines.append(build_rule("-"))
@@ -563,7 +575,16 @@ def _table_lines(headers: list[str], rows: Iterable[list[str]]) -> list[str]:
 
 def _render_issue_table(issues: list[IssueSpec], verbose: bool = False) -> str:
     if verbose:
-        headers = ["Title", "Team", "Project", "Labels", "Branch", "Worktree", "Description", "Status"]
+        headers = [
+            "Title",
+            "Team",
+            "Project",
+            "Labels",
+            "Branch",
+            "Worktree",
+            "Description",
+            "Status",
+        ]
         rows = [
             [
                 f"• {issue.title}",
@@ -626,11 +647,25 @@ def _render_by_project(issues: list[IssueSpec]) -> str:
         # Sort issues by status (in progress first, then todo, then done)
         def sort_key(issue: IssueSpec) -> tuple[int, str]:
             state = (issue.state or "").lower()
-            if state in {"in progress", "wip", "doing", "progress", "started", "working"}:
+            if state in {
+                "in progress",
+                "wip",
+                "doing",
+                "progress",
+                "started",
+                "working",
+            }:
                 priority = 0
             elif state in {"todo", "to do", "backlog", "triage", "planned", "ready"}:
                 priority = 1
-            elif state in {"review", "in review", "feedback", "blocked", "qa", "testing"}:
+            elif state in {
+                "review",
+                "in review",
+                "feedback",
+                "blocked",
+                "qa",
+                "testing",
+            }:
                 priority = 2
             elif state in {"done", "completed", "complete", "closed", "resolved"}:
                 priority = 3
@@ -686,10 +721,13 @@ def _render_by_block(issues: list[IssueSpec]) -> str:
         return f"{Fore.YELLOW}No blocking relationships found.{Style.RESET_ALL}\n"
 
     output_lines: list[str] = []
-    output_lines.append(f"\n{Fore.CYAN}{Style.BRIGHT}# Blocking Relationships{Style.RESET_ALL}\n")
+    output_lines.append(
+        f"\n{Fore.CYAN}{Style.BRIGHT}# Blocking Relationships{Style.RESET_ALL}\n"
+    )
 
     # Group blocked issues by their blockers
     from collections import defaultdict
+
     blocker_to_blocked: dict[str, list[IssueSpec]] = defaultdict(list)
     for issue in blocked_issues:
         for blocker in issue.blocked_by:
@@ -708,7 +746,9 @@ def _render_by_block(issues: list[IssueSpec]) -> str:
 
         # Render each blocked issue
         for blocked_issue in blocked_list:
-            output_lines.append(_render_box_for_issue(blocked_issue, blocked_issue.title))
+            output_lines.append(
+                _render_box_for_issue(blocked_issue, blocked_issue.title)
+            )
 
         output_lines.append("")
 
@@ -720,40 +760,60 @@ def _render_box_for_issue(issue: IssueSpec | None, title: str) -> str:
     box_width = 45
 
     # Truncate title if too long
-    display_title = title if len(title) <= box_width - 4 else title[:box_width - 7] + "..."
+    display_title = (
+        title if len(title) <= box_width - 4 else title[: box_width - 7] + "..."
+    )
 
     lines: list[str] = []
     lines.append(f"{Fore.CYAN}┌{'─' * (box_width - 2)}┐{Style.RESET_ALL}")
-    lines.append(f"{Fore.CYAN}│{Style.RESET_ALL} {display_title:<{box_width - 4}} {Fore.CYAN}│{Style.RESET_ALL}")
+    lines.append(
+        f"{Fore.CYAN}│{Style.RESET_ALL} {display_title:<{box_width - 4}} {Fore.CYAN}│{Style.RESET_ALL}"
+    )
 
     if issue:
         # Add labels if present
         if issue.labels:
             labels_str = ", ".join(issue.labels)
             if len(labels_str) > box_width - 6:
-                labels_str = labels_str[:box_width - 9] + "..."
-            lines.append(f"{Fore.CYAN}│{Style.RESET_ALL} {Fore.BLUE}[{labels_str}]{Style.RESET_ALL}{' ' * (box_width - len(labels_str) - 7)}{Fore.CYAN}│{Style.RESET_ALL}")
+                labels_str = labels_str[: box_width - 9] + "..."
+            lines.append(
+                f"{Fore.CYAN}│{Style.RESET_ALL} {Fore.BLUE}[{labels_str}]{Style.RESET_ALL}{' ' * (box_width - len(labels_str) - 7)}{Fore.CYAN}│{Style.RESET_ALL}"
+            )
 
         # Add priority if set
         if issue.priority is not None:
             priority_names = {0: "None", 1: "Low", 2: "Medium", 3: "High", 4: "Urgent"}
-            priority_str = f"Priority: {priority_names.get(issue.priority, str(issue.priority))}"
-            lines.append(f"{Fore.CYAN}│{Style.RESET_ALL} {priority_str:<{box_width - 4}} {Fore.CYAN}│{Style.RESET_ALL}")
+            priority_str = (
+                f"Priority: {priority_names.get(issue.priority, str(issue.priority))}"
+            )
+            lines.append(
+                f"{Fore.CYAN}│{Style.RESET_ALL} {priority_str:<{box_width - 4}} {Fore.CYAN}│{Style.RESET_ALL}"
+            )
 
         # Add state if present
         if issue.state:
             state_str = f"State: {issue.state}"
-            lines.append(f"{Fore.CYAN}│{Style.RESET_ALL} {state_str:<{box_width - 4}} {Fore.CYAN}│{Style.RESET_ALL}")
+            lines.append(
+                f"{Fore.CYAN}│{Style.RESET_ALL} {state_str:<{box_width - 4}} {Fore.CYAN}│{Style.RESET_ALL}"
+            )
     else:
         # Issue not found in our list
-        lines.append(f"{Fore.CYAN}│{Style.RESET_ALL} {Fore.YELLOW}(External dependency){Style.RESET_ALL}{' ' * (box_width - 25)}{Fore.CYAN}│{Style.RESET_ALL}")
+        lines.append(
+            f"{Fore.CYAN}│{Style.RESET_ALL} {Fore.YELLOW}(External dependency){Style.RESET_ALL}{' ' * (box_width - 25)}{Fore.CYAN}│{Style.RESET_ALL}"
+        )
 
     lines.append(f"{Fore.CYAN}└{'─' * (box_width - 2)}┘{Style.RESET_ALL}")
 
     return "\n".join(lines)
 
 
-def run_list(path: Path, verbose: bool = False, by_project: bool = False, by_block: bool = False, include_done: bool = False) -> int:
+def run_list(
+    path: Path,
+    verbose: bool = False,
+    by_project: bool = False,
+    by_block: bool = False,
+    include_done: bool = False,
+) -> int:
     manifest_files = _discover_manifest_files(path)
     if not manifest_files:
         raise RuntimeError(f"No YAML files found in {path}")
@@ -784,12 +844,15 @@ def run_list(path: Path, verbose: bool = False, by_project: bool = False, by_blo
         }
         excluded_states = done_states | cancelled_states
         issues = [
-            issue for issue in issues
+            issue
+            for issue in issues
             if (issue.state or "").lower() not in excluded_states
         ]
 
     if not issues:
-        print("No active issues found. Use --include-done to show completed and cancelled tickets.")
+        print(
+            "No active issues found. Use --include-done to show completed and cancelled tickets."
+        )
         return 0
 
     if by_block:
@@ -1079,7 +1142,13 @@ def main(argv: list[str] | None = None) -> int:
     elif args.command == "list":
         try:
             path = args.path if args.path is not None else _get_tasks_directory()
-            return run_list(path, verbose=args.verbose, by_project=args.by_project, by_block=args.by_block, include_done=args.include_done)
+            return run_list(
+                path,
+                verbose=args.verbose,
+                by_project=args.by_project,
+                by_block=args.by_block,
+                include_done=args.include_done,
+            )
         except Exception as exc:  # pragma: no cover - top-level handler
             parser.error(str(exc))
             return 1
@@ -1108,7 +1177,9 @@ def main(argv: list[str] | None = None) -> int:
             return 1
     elif args.command == "pull":
         try:
-            output_dir = args.output if args.output is not None else _get_tasks_directory()
+            output_dir = (
+                args.output if args.output is not None else _get_tasks_directory()
+            )
             run_pull(
                 team_keys=args.team_keys,
                 output_dir=output_dir,

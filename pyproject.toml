@@ -39,3 +39,8 @@ dev = [
     "types-colorama>=0.4.15.20250801",
     "types-pyyaml>=6.0.12.20250915",
 ]
+
+[tool.ty]
+# ty configuration
+# By default, ty will check all .py files
+# You can customize paths here if needed

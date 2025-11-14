@@ -6,7 +6,6 @@ This will attempt to pull issues from Linear for testing purposes.
 
 import os
 import sys
-from pathlib import Path
 
 # Test if LINEAR_API_KEY is set
 if not os.environ.get("LINEAR_API_KEY"):

@@ -101,9 +101,6 @@ def run_pull(team_keys: list[str], output_dir: Path, limit: int = 100) -> None:
         for team_key in team_keys:
             print(f"Fetching issues for team {team_key}...")
 
-            # Fetch team context to get state names
-            context = client.fetch_team_context(team_key)
-
             # Fetch issues from Linear
             issues = client.fetch_team_issues(team_key, limit=limit)
 
@@ -211,7 +208,9 @@ def _process_issue(
         if spec.priority is not None:
             update_input["priority"] = spec.priority
         if spec.labels:
-            update_input["labelIds"] = context.resolve_label_ids(spec.labels, client, config.dry_run)
+            update_input["labelIds"] = context.resolve_label_ids(
+                spec.labels, client, config.dry_run
+            )
         if spec.assignee_email:
             update_input["assigneeId"] = context.resolve_member_id(spec.assignee_email)
         if spec.state:
@@ -241,7 +240,9 @@ def _process_issue(
     if spec.priority is not None:
         create_input["priority"] = spec.priority
     if spec.labels:
-        create_input["labelIds"] = context.resolve_label_ids(spec.labels, client, config.dry_run)
+        create_input["labelIds"] = context.resolve_label_ids(
+            spec.labels, client, config.dry_run
+        )
     if spec.assignee_email:
         create_input["assigneeId"] = context.resolve_member_id(spec.assignee_email)
     desired_state_id = None
@@ -313,7 +314,9 @@ def _parse_defaults(data: Any) -> ManifestDefaults:
         branch=_optional_str(data.get("branch")),
         worktree=_optional_str(data.get("worktree")),
         project=_optional_str(data.get("project")),
-        blocked_by=[_require_str(item, "'defaults.blocked_by' entries") for item in blocked_by],
+        blocked_by=[
+            _require_str(item, "'defaults.blocked_by' entries") for item in blocked_by
+        ],
     )
 
 
@@ -354,14 +357,19 @@ def _parse_issue(data: Any, defaults: ManifestDefaults, index: int) -> IssueSpec
     complete = bool(complete_raw) if complete_raw is not None else False
     branch = _optional_str(data.get("branch")) or defaults.branch
     worktree = _optional_str(data.get("worktree")) or defaults.worktree
-    project_name = _optional_str(data.get("project_name") or data.get("project")) or defaults.project
+    project_name = (
+        _optional_str(data.get("project_name") or data.get("project"))
+        or defaults.project
+    )
     project_id = _optional_str(data.get("project_id"))
 
     blocked_by_raw = data.get("blocked_by")
     blocked_by = defaults.blocked_by.copy()
     if blocked_by_raw:
         if not isinstance(blocked_by_raw, list):
-            raise RuntimeError(f"Issue #{index}: 'blocked_by' must be a list of strings.")
+            raise RuntimeError(
+                f"Issue #{index}: 'blocked_by' must be a list of strings."
+            )
         blocked_by.extend(
             _require_str(item, f"Issue #{index}: blocked_by entries")
             for item in blocked_by_raw
@@ -457,7 +465,12 @@ class TeamContext:
                 f"State '{state_name}' is not valid for team {self.key}. Available states: {options}."
             ) from exc
 
-    def resolve_label_ids(self, labels: list[str], client: "LinearClient | None" = None, dry_run: bool = False) -> list[str]:
+    def resolve_label_ids(
+        self,
+        labels: list[str],
+        client: "LinearClient | None" = None,
+        dry_run: bool = False,
+    ) -> list[str]:
         ids: list[str] = []
         missing: list[str] = []
         for label in labels:
@@ -490,7 +503,9 @@ class TeamContext:
                             self.labels[_normalize_key(label)] = label_id
                             self.available_labels.append(label)
                             ids.append(label_id)
-                            print(f"  Found existing label '{label}' in team {self.key}")
+                            print(
+                                f"  Found existing label '{label}' in team {self.key}"
+                            )
                         else:
                             # Label doesn't exist but creation failed - re-raise
                             raise
@@ -645,7 +660,9 @@ class LinearClient:
                 return label
         return None
 
-    def fetch_team_issues(self, team_key: str, limit: int = 100) -> list[dict[str, Any]]:
+    def fetch_team_issues(
+        self, team_key: str, limit: int = 100
+    ) -> list[dict[str, Any]]:
         """Fetch all issues for a team from Linear."""
         all_issues: list[dict[str, Any]] = []
         has_next_page = True
