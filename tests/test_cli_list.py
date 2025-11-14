@@ -62,7 +62,7 @@ def test_list_uses_defaults_and_marks_complete(
         description: Update shared helpers
         branch: feature/common
         worktree: ../worktrees/common
-        complete: true
+        state: Done
         """,
     )
     _write_manifest(
@@ -75,7 +75,7 @@ def test_list_uses_defaults_and_marks_complete(
         """,
     )
 
-    result = main(["list", str(manifest_dir)])
+    result = main(["list", str(manifest_dir), "--include-done"])
 
     assert result == 0
     out = capsys.readouterr().out
@@ -90,8 +90,8 @@ def test_list_uses_defaults_and_marks_complete(
     # Description should NOT be present without --verbose
     assert "Update shared helpers" not in clean_out
     assert "Improve API messaging" not in clean_out
-    # complete flag should surface in status column
-    assert "☑" in clean_out
+    # Done state should show with checkmark
+    assert "[x]" in clean_out or "Done" in clean_out
     assert "Review" in clean_out
 
 

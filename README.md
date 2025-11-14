@@ -46,7 +46,6 @@ state: Triage
 priority: 1
 labels: ["Infra", "Automation"]
 assignee_email: engineer@example.com
-complete: true
 branch: feature/webhook-retries
 worktree: ../worktrees/webhook-retries
 ```

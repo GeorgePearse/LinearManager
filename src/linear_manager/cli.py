@@ -430,8 +430,6 @@ def _format_status(issue: IssueSpec) -> str:
     parts: list[str] = [f"{color}{Style.BRIGHT}{symbol}{Style.RESET_ALL}"]
     if label_hint:
         parts.append(f"{Style.DIM}{label_hint}{Style.RESET_ALL}")
-    if issue.complete:
-        parts.append(f"{Fore.GREEN}{Style.BRIGHT}☑{Style.RESET_ALL}")
     if issue.blocked_by:
         blocked_str = ", ".join(issue.blocked_by)
         parts.append(

@@ -32,7 +32,6 @@ class IssueSpec:
     labels: list[str]
     assignee_email: str | None
     priority: int | None
-    complete: bool
     branch: str | None = None
     worktree: str | None = None
     project_name: str | None = None
@@ -193,8 +192,6 @@ def _process_issue(
             update_input["assigneeId"] = context.resolve_member_id(spec.assignee_email)
         if spec.state:
             update_input["stateId"] = context.resolve_state_id(spec.state)
-        if spec.complete and config.mark_done:
-            update_input["stateId"] = context.done_state_id
 
         if config.dry_run:
             print(
@@ -203,11 +200,6 @@ def _process_issue(
         else:
             updated = client.update_issue(existing["id"], update_input)
             print(f"{descriptor}: updated {updated['identifier']} ({updated['url']}).")
-
-        if spec.complete and not config.mark_done:
-            print(
-                f"{descriptor}: complete=true but --mark-done not set; leaving issue open."
-            )
         return
 
     create_input: dict[str, Any] = {
@@ -223,13 +215,8 @@ def _process_issue(
         )
     if spec.assignee_email:
         create_input["assigneeId"] = context.resolve_member_id(spec.assignee_email)
-    desired_state_id = None
-    if spec.complete and config.mark_done:
-        desired_state_id = context.done_state_id
-    elif spec.state:
-        desired_state_id = context.resolve_state_id(spec.state)
-    if desired_state_id:
-        create_input["stateId"] = desired_state_id
+    if spec.state:
+        create_input["stateId"] = context.resolve_state_id(spec.state)
 
     if config.dry_run:
         print(f"{descriptor}: DRY RUN would create new issue.")
@@ -280,9 +267,6 @@ def _parse_issue(data: Any) -> IssueSpec:
 
     assignee_email = _optional_str(data.get("assignee_email"))
     priority = _optional_int(data.get("priority"), allow_none=True)
-
-    complete_raw = data.get("complete")
-    complete = bool(complete_raw) if complete_raw is not None else False
     branch = _optional_str(data.get("branch"))
     worktree = _optional_str(data.get("worktree"))
     project_name = _optional_str(data.get("project_name"))
@@ -306,7 +290,6 @@ def _parse_issue(data: Any) -> IssueSpec:
         labels=labels,
         assignee_email=assignee_email,
         priority=priority,
-        complete=complete,
         branch=branch,
         worktree=worktree,
         project_name=project_name,

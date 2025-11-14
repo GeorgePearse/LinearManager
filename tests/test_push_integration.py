@@ -123,7 +123,6 @@ class TestPushWorkflow:
             labels=[],
             assignee_email=None,
             priority=2,
-            complete=False,
         )
 
         mock_linear_client.fetch_issue_by_identifier.return_value = None
@@ -154,7 +153,6 @@ class TestPushWorkflow:
             labels=[],
             assignee_email=None,
             priority=3,
-            complete=False,
         )
 
         mock_linear_client.fetch_issue_by_identifier.return_value = {
@@ -190,7 +188,6 @@ class TestPushWorkflow:
             labels=[],
             assignee_email=None,
             priority=None,
-            complete=False,
         )
 
         mock_linear_client.fetch_issue_by_identifier.return_value = None
@@ -213,7 +210,6 @@ class TestPushWorkflow:
             labels=[],
             assignee_email=None,
             priority=None,
-            complete=False,
         )
 
         mock_linear_client.fetch_issue_by_identifier.return_value = {
@@ -241,7 +237,6 @@ class TestPushWorkflow:
             labels=["Bug", "Feature"],
             assignee_email=None,
             priority=None,
-            complete=False,
         )
 
         mock_linear_client.fetch_issue_by_identifier.return_value = None
@@ -270,7 +265,6 @@ class TestPushWorkflow:
             labels=[],
             assignee_email="dev@example.com",
             priority=None,
-            complete=False,
         )
 
         mock_linear_client.fetch_issue_by_identifier.return_value = None
