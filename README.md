@@ -3,7 +3,7 @@
 Even using the Linear MCP can slow down your work nowadays. This is a simple quick solution so that maintaining your tickets doesn't take you out of your flow.
 
 **LinearManager supports both push and pull operations:**
-- **Push (sync)**: Upload local YAML files to Linear to create/update issues
+- **Push**: Upload local YAML files to Linear to create/update issues
 - **Pull**: Download issues from Linear to local YAML files
 
 <img width="1845" height="661" alt="image" src="https://github.com/user-attachments/assets/bb37838c-3cc2-4d60-a9a9-6e1c8f48d005" />
@@ -104,29 +104,29 @@ issues:
     state: In Progress  # Sets the issue to "In Progress" state
 ```
 
-## Bidirectional Sync Operations
+## Push and Pull Operations
 
 LinearManager provides both **push** and **pull** operations for complete control over your Linear tickets.
 
-### Push to Linear (sync command)
+### Push to Linear
 
 Upload local YAML files to Linear to create or update issues:
 
 ```bash
 # Push all YAML files in current directory to Linear
-manager sync .
+manager push .
 
 # Push all YAML files in a specific directory
-manager sync path/to/manifests
+manager push path/to/manifests
 
 # Push a single file
-manager sync path/to/issues.yaml
+manager push path/to/issues.yaml
 
 # Preview changes without pushing
-manager sync . --dry-run
+manager push . --dry-run
 ```
 
-### Pull from Linear (pull command)
+### Pull from Linear
 
 Download issues from Linear and save them as local YAML files:
 
@@ -172,7 +172,7 @@ manager pull --team-keys ENG --output ./tasks
 # ... make your changes ...
 
 # 3. Push changes back to Linear
-manager sync ./tasks
+manager push ./tasks
 ```
 
 **Migrate issues between teams:**
@@ -184,7 +184,7 @@ manager pull --team-keys OLD_TEAM --output ./migration
 # ... update team_key in files ...
 
 # 3. Push to new team
-manager sync ./migration
+manager push ./migration
 ```
 
 > **Note**: We plan to integrate with [par](https://github.com/your-username/par) for enhanced parallel processing and workflow automation.
