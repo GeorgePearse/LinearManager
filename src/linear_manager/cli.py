@@ -252,30 +252,23 @@ def _process_manifest_for_tests(
 ) -> list[tuple[str, dict[str, Any]]]:
     """Process a single manifest file for test status updates."""
     raw = yaml.safe_load(manifest_path.read_text(encoding="utf-8")) or {}
-    issues = raw.get("issues")
-    if not isinstance(issues, list):
+    if not isinstance(raw, dict):
         return []
 
-    results: list[tuple[str, dict[str, Any]]] = []
-    changed = False
-    for index, issue in enumerate(issues):
-        if not isinstance(issue, dict):
-            continue
-        tests_entry = _evaluate_issue_tests(issue, manifest_path)
-        previous = issue.get("tests")
-        if previous != tests_entry:
-            issue["tests"] = tests_entry
-            changed = True
-        title = issue.get("title") or f"Issue {index + 1}"
-        results.append((title, tests_entry))
+    # With flat structure, each file contains a single issue
+    tests_entry = _evaluate_issue_tests(raw, manifest_path)
+    previous = raw.get("tests")
+    changed = previous != tests_entry
 
     if changed:
+        raw["tests"] = tests_entry
         manifest_path.write_text(
             yaml.safe_dump(raw, default_flow_style=False, sort_keys=False),
             encoding="utf-8",
         )
 
-    return results
+    title = raw.get("title") or "Unknown issue"
+    return [(title, tests_entry)]
 
 
 def run_check_tests(path: Path, max_workers: int = 4) -> int:
@@ -888,11 +881,11 @@ def run_add(
     except GitWorktreeError as exc:
         raise RuntimeError(f"Failed to create git worktree: {exc}") from exc
 
-    # Build the issue data
+    # Build the issue data (flat structure)
     issue_dict: dict[str, Any] = {
+        "team_key": team_key,
         "title": title,
         "description": description or "",
-        "team_key": team_key,
         "branch": branch_name,
         "worktree": str(worktree_path),
     }
@@ -905,11 +898,9 @@ def run_add(
     if labels:
         issue_dict["labels"] = labels
 
-    issue_data: dict[str, list[dict[str, Any]]] = {"issues": [issue_dict]}
-
-    # Write to file
+    # Write to file (flat structure, no nesting)
     with filepath.open("w", encoding="utf-8") as f:
-        yaml.safe_dump(issue_data, f, default_flow_style=False, sort_keys=False)
+        yaml.safe_dump(issue_dict, f, default_flow_style=False, sort_keys=False)
 
     print(f"{Fore.GREEN}✓ Ticket created successfully:{Style.RESET_ALL}")
     print(f"  {Fore.CYAN}File:{Style.RESET_ALL} {filepath}")

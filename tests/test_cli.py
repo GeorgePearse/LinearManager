@@ -44,7 +44,7 @@ class TestCliMain:
     def test_main_push_single_file(self, mock_run_push: Mock) -> None:
         """Test main with push subcommand and single file."""
         with tempfile.NamedTemporaryFile(suffix=".yaml", delete=False) as f:
-            f.write(b"defaults:\n  team_key: ENG\nissues:\n  - title: Test\n")
+            f.write(b"team_key: ENG\ntitle: Test\n")
             f.flush()
             path = Path(f.name)
 
@@ -61,9 +61,9 @@ class TestCliMain:
         with tempfile.TemporaryDirectory() as tmpdir:
             # Create multiple YAML files
             yaml1 = Path(tmpdir) / "issue1.yaml"
-            yaml1.write_text("defaults:\n  team_key: ENG\nissues:\n  - title: Test1\n")
+            yaml1.write_text("team_key: ENG\ntitle: Test1\n")
             yaml2 = Path(tmpdir) / "issue2.yaml"
-            yaml2.write_text("defaults:\n  team_key: ENG\nissues:\n  - title: Test2\n")
+            yaml2.write_text("team_key: ENG\ntitle: Test2\n")
 
             result = main(["push", tmpdir])
             assert result == 0
@@ -85,9 +85,9 @@ class TestCliMain:
 
         with tempfile.TemporaryDirectory() as tmpdir:
             yaml1 = Path(tmpdir) / "issue1.yaml"
-            yaml1.write_text("defaults:\n  team_key: ENG\nissues:\n  - title: Test1\n")
+            yaml1.write_text("team_key: ENG\ntitle: Test1\n")
             yaml2 = Path(tmpdir) / "issue2.yaml"
-            yaml2.write_text("defaults:\n  team_key: ENG\nissues:\n  - title: Test2\n")
+            yaml2.write_text("team_key: ENG\ntitle: Test2\n")
 
             result = main(["push", tmpdir])
             assert result == 1
@@ -102,7 +102,7 @@ class TestCliMain:
     def test_main_with_dry_run(self, mock_run_push: Mock) -> None:
         """Test main with dry-run flag."""
         with tempfile.NamedTemporaryFile(suffix=".yaml", delete=False) as f:
-            f.write(b"defaults:\n  team_key: ENG\nissues:\n  - title: Test\n")
+            f.write(b"team_key: ENG\ntitle: Test\n")
             f.flush()
             path = Path(f.name)
 

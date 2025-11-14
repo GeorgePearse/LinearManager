@@ -21,15 +21,12 @@ def test_list_outputs_table_for_manifest(
     _write_manifest(
         manifest,
         """
-        defaults:
-          team_key: ENG
-
-        issues:
-          - title: Refactor login flow
-            description: Improve login sequence for oauth integrations
-            branch: feature/login-flow
-            worktree: ../worktrees/login-flow
-            status: In Progress
+        team_key: ENG
+        title: Refactor login flow
+        description: Improve login sequence for oauth integrations
+        branch: feature/login-flow
+        worktree: ../worktrees/login-flow
+        status: In Progress
         """,
     )
 
@@ -60,27 +57,21 @@ def test_list_uses_defaults_and_marks_complete(
     _write_manifest(
         manifest_dir / "one.yaml",
         """
-        defaults:
-          team_key: ENG
-          branch: feature/common
-          worktree: ../worktrees/common
-
-        issues:
-          - title: Common refactor
-            description: Update shared helpers
-            complete: true
+        team_key: ENG
+        title: Common refactor
+        description: Update shared helpers
+        branch: feature/common
+        worktree: ../worktrees/common
+        complete: true
         """,
     )
     _write_manifest(
         manifest_dir / "two.yaml",
         """
-        defaults:
-          team_key: ENG
-
-        issues:
-          - title: API polish
-            description: Improve API messaging
-            state: Review
+        team_key: ENG
+        title: API polish
+        description: Improve API messaging
+        state: Review
         """,
     )
 
@@ -111,15 +102,12 @@ def test_list_verbose_shows_descriptions(
     _write_manifest(
         manifest,
         """
-        defaults:
-          team_key: ENG
-
-        issues:
-          - title: Refactor login flow
-            description: Improve login sequence for oauth integrations
-            branch: feature/login-flow
-            worktree: ../worktrees/login-flow
-            status: In Progress
+        team_key: ENG
+        title: Refactor login flow
+        description: Improve login sequence for oauth integrations
+        branch: feature/login-flow
+        worktree: ../worktrees/login-flow
+        status: In Progress
         """,
     )
 
@@ -157,16 +145,13 @@ def test_list_by_block_shows_blocking_relationships(
     _write_manifest(
         manifest_dir / "blocker.yaml",
         """
-        defaults:
-          team_key: ENG
-
-        issues:
-          - title: Deploy infrastructure
-            description: Set up the infrastructure
-            priority: 3
-            labels:
-              - Infrastructure
-              - Deployment
+        team_key: ENG
+        title: Deploy infrastructure
+        description: Set up the infrastructure
+        priority: 3
+        labels:
+          - Infrastructure
+          - Deployment
         """,
     )
 
@@ -174,16 +159,13 @@ def test_list_by_block_shows_blocking_relationships(
     _write_manifest(
         manifest_dir / "blocked.yaml",
         """
-        defaults:
-          team_key: ENG
-
-        issues:
-          - title: Implement feature X
-            description: Feature that depends on infrastructure
-            priority: 2
-            state: Todo
-            blocked_by:
-              - "Deploy infrastructure"
+        team_key: ENG
+        title: Implement feature X
+        description: Feature that depends on infrastructure
+        priority: 2
+        state: Todo
+        blocked_by:
+          - "Deploy infrastructure"
         """,
     )
 
@@ -218,14 +200,11 @@ def test_list_by_block_shows_external_dependencies(
     _write_manifest(
         manifest,
         """
-        defaults:
-          team_key: ENG
-
-        issues:
-          - title: Implement feature Y
-            description: Feature blocked by external dependency
-            blocked_by:
-              - "Third-party API availability"
+        team_key: ENG
+        title: Implement feature Y
+        description: Feature blocked by external dependency
+        blocked_by:
+          - "Third-party API availability"
         """,
     )
 
@@ -251,12 +230,9 @@ def test_list_by_block_no_relationships(
     _write_manifest(
         manifest,
         """
-        defaults:
-          team_key: ENG
-
-        issues:
-          - title: Standalone feature
-            description: Feature with no blockers
+        team_key: ENG
+        title: Standalone feature
+        description: Feature with no blockers
         """,
     )
 

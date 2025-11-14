@@ -35,45 +35,40 @@ After installation you can run `manager ...` from anywhere on your machine.
 
 ## Manifest Format
 
-Create a YAML file for each issue you want to sync. Each file should contain a single issue:
+Create a YAML file for each issue you want to sync. Each file contains a single flat issue:
 
 ```yaml
-defaults:
-  team_key: ENG
-  state: Triage
-  priority: 1
-
-issues:
-  - title: Fix webhook retries
-    description: |
-      Make sure failed webhooks retry with exponential backoff.
-    labels: ["Infra", "Automation"]
-    assignee_email: engineer@example.com
-    complete: true
-    branch: feature/webhook-retries
-    worktree: ../worktrees/webhook-retries
+team_key: ENG
+title: Fix webhook retries
+description: |
+  Make sure failed webhooks retry with exponential backoff.
+state: Triage
+priority: 1
+labels: ["Infra", "Automation"]
+assignee_email: engineer@example.com
+complete: true
+branch: feature/webhook-retries
+worktree: ../worktrees/webhook-retries
 ```
 
 Or update an existing issue by specifying its identifier:
 
 ```yaml
-defaults:
-  team_key: ENG
-
-issues:
-  - identifier: ENG-123
-    title: Fix webhook retries - UPDATED
-    description: |
-      Make sure failed webhooks retry with exponential backoff.
-      Added additional context here.
-    priority: 2
+team_key: ENG
+identifier: ENG-123
+title: Fix webhook retries - UPDATED
+description: |
+  Make sure failed webhooks retry with exponential backoff.
+  Added additional context here.
+priority: 2
 ```
 
 Key fields:
-- `team_key` (required per issue) chooses the Linear team
+- `team_key` (required) chooses the Linear team
+- `title` (required) is the issue title
 - `identifier` is optional; when present the CLI updates the existing issue instead of creating a new one
 - `state` or `status` (synonyms) set the Linear workflow state (e.g., "Todo", "In Progress", "Done")
-- `labels`, `assignee_email`, `state`, and `priority` can be set at defaults level or per-issue
+- `labels`, `assignee_email`, `priority` are optional fields
 - `branch` and `worktree` are optional helpers for tracking local development context so you can jump back into the work quickly later
 
 ## Setting Issue Status
@@ -81,27 +76,21 @@ Key fields:
 Use `state` or `status` to set the workflow state in Linear (they're synonyms):
 
 ```yaml
-defaults:
-  team_key: ENG
-
-issues:
-  - identifier: ENG-123
-    title: Fix critical bug
-    description: Bug has been resolved
-    status: Done  # Sets the issue to "Done" state in Linear
+team_key: ENG
+identifier: ENG-123
+title: Fix critical bug
+description: Bug has been resolved
+status: Done  # Sets the issue to "Done" state in Linear
 ```
 
 Or using `state`:
 
 ```yaml
-defaults:
-  team_key: ENG
-
-issues:
-  - identifier: ENG-124
-    title: Work in progress
-    description: Currently implementing
-    state: In Progress  # Sets the issue to "In Progress" state
+team_key: ENG
+identifier: ENG-124
+title: Work in progress
+description: Currently implementing
+state: In Progress  # Sets the issue to "In Progress" state
 ```
 
 ## Push and Pull Operations

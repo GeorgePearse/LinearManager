@@ -8,9 +8,7 @@ from pathlib import Path
 import pytest
 
 from linear_manager.operations import (
-    ManifestDefaults,
     _load_manifest,
-    _parse_defaults,
     _parse_issue,
     _optional_str,
     _require_str,
@@ -27,14 +25,11 @@ class TestManifestLoading:
         """Test loading a valid manifest file."""
         with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write("""
-defaults:
-  team_key: ENG
-  priority: 2
-
-issues:
-  - title: Test Issue
-    description: Test description
-    state: Todo
+team_key: ENG
+title: Test Issue
+description: Test description
+state: Todo
+priority: 2
 """)
             f.flush()
             path = Path(f.name)
@@ -72,97 +67,14 @@ issues:
         finally:
             path.unlink()
 
-    def test_load_manifest_missing_issues(self) -> None:
-        """Test loading a manifest without issues list."""
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
-            f.write("defaults:\n  team_key: ENG\n")
-            f.flush()
-            path = Path(f.name)
-
-        try:
-            with pytest.raises(
-                RuntimeError, match="must include a non-empty 'issues' list"
-            ):
-                _load_manifest(path)
-        finally:
-            path.unlink()
-
-    def test_load_manifest_invalid_issues_type(self) -> None:
-        """Test loading a manifest with non-list issues."""
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
-            f.write("issues: not_a_list\n")
-            f.flush()
-            path = Path(f.name)
-
-        try:
-            with pytest.raises(RuntimeError, match="'issues' must be a list"):
-                _load_manifest(path)
-        finally:
-            path.unlink()
-
-
-class TestDefaultsParsing:
-    """Test parsing of manifest defaults."""
-
-    def test_parse_empty_defaults(self) -> None:
-        """Test parsing empty defaults."""
-        defaults = _parse_defaults({})
-        assert defaults.team_key is None
-        assert defaults.state is None
-        assert defaults.labels == []
-        assert defaults.assignee_email is None
-        assert defaults.priority is None
-        assert defaults.branch is None
-        assert defaults.worktree is None
-        assert defaults.blocked_by == []
-
-    def test_parse_full_defaults(self) -> None:
-        """Test parsing complete defaults."""
-        data = {
-            "team_key": "ENG",
-            "state": "Backlog",
-            "labels": ["Bug", "Frontend"],
-            "assignee_email": "dev@example.com",
-            "priority": 3,
-            "branch": "feature/test",
-            "worktree": "/repos/feature-test",
-            "blocked_by": ["Model performance", "API availability"],
-        }
-        defaults = _parse_defaults(data)
-        assert defaults.team_key == "ENG"
-        assert defaults.state == "Backlog"
-        assert defaults.labels == ["Bug", "Frontend"]
-        assert defaults.assignee_email == "dev@example.com"
-        assert defaults.priority == 3
-        assert defaults.branch == "feature/test"
-        assert defaults.worktree == "/repos/feature-test"
-        assert defaults.blocked_by == ["Model performance", "API availability"]
-
-    def test_parse_defaults_with_assignee_alias(self) -> None:
-        """Test that 'assignee' is accepted as alias for 'assignee_email'."""
-        data: dict[str, str] = {"assignee": "dev@example.com"}
-        defaults = _parse_defaults(data)
-        assert defaults.assignee_email == "dev@example.com"
-
-    def test_parse_defaults_invalid_labels_type(self) -> None:
-        """Test parsing defaults with invalid labels type."""
-        with pytest.raises(RuntimeError, match="'defaults.labels' must be a list"):
-            _parse_defaults({"labels": "not_a_list"})
-
-    def test_parse_defaults_invalid_blocked_by_type(self) -> None:
-        """Test parsing defaults with invalid blocked_by type."""
-        with pytest.raises(RuntimeError, match="'defaults.blocked_by' must be a list"):
-            _parse_defaults({"blocked_by": "not_a_list"})
-
 
 class TestIssueParsing:
     """Test parsing of individual issues."""
 
     def test_parse_minimal_issue(self) -> None:
         """Test parsing an issue with minimal fields."""
-        defaults = ManifestDefaults(team_key="ENG")
-        data = {"title": "Test Issue"}
-        issue = _parse_issue(data, defaults, 1)
+        data = {"title": "Test Issue", "team_key": "ENG"}
+        issue = _parse_issue(data)
         assert issue.title == "Test Issue"
         assert issue.description == ""
         assert issue.team_key == "ENG"
@@ -177,7 +89,6 @@ class TestIssueParsing:
 
     def test_parse_full_issue(self) -> None:
         """Test parsing an issue with all fields."""
-        defaults = ManifestDefaults()
         data = {
             "title": "Test Issue",
             "description": "Test description",
@@ -191,7 +102,7 @@ class TestIssueParsing:
             "worktree": "/repos/feature-test",
             "blocked_by": ["Model performance", "Database migration"],
         }
-        issue = _parse_issue(data, defaults, 1)
+        issue = _parse_issue(data)
         assert issue.title == "Test Issue"
         assert issue.description == "Test description"
         assert issue.team_key == "ENG"
@@ -204,148 +115,78 @@ class TestIssueParsing:
         assert issue.worktree == "/repos/feature-test"
         assert issue.blocked_by == ["Model performance", "Database migration"]
 
-    def test_parse_issue_with_defaults(self) -> None:
-        """Test that issue inherits from defaults."""
-        defaults = ManifestDefaults(
-            team_key="ENG",
-            state="Backlog",
-            labels=["Automation"],
-            priority=1,
-            branch="feature/base",
-            worktree="/repos/base",
-        )
-        data = {"title": "Test Issue"}
-        issue = _parse_issue(data, defaults, 1)
-        assert issue.team_key == "ENG"
-        assert issue.state == "Backlog"
-        assert issue.labels == ["Automation"]
-        assert issue.priority == 1
-        assert issue.branch == "feature/base"
-        assert issue.worktree == "/repos/base"
-
-    def test_parse_issue_overrides_defaults(self) -> None:
-        """Test that issue fields override defaults."""
-        defaults = ManifestDefaults(
-            team_key="ENG",
-            state="Backlog",
-            labels=["Automation"],
-            priority=1,
-            branch="feature/base",
-            worktree="/repos/base",
-        )
-        data = {
-            "title": "Test Issue",
-            "team_key": "PROD",
-            "state": "Todo",
-            "labels": ["Bug"],
-            "priority": 3,
-            "branch": "feature/override",
-            "worktree": "/repos/override",
-        }
-        issue = _parse_issue(data, defaults, 1)
-        assert issue.team_key == "PROD"
-        assert issue.state == "Todo"
-        assert set(issue.labels) == {"Automation", "Bug"}
-        assert issue.priority == 3
-        assert issue.branch == "feature/override"
-        assert issue.worktree == "/repos/override"
-
     def test_parse_issue_missing_team_key(self) -> None:
         """Test parsing issue without team_key fails."""
-        defaults = ManifestDefaults()
         data = {"title": "Test Issue"}
-        with pytest.raises(RuntimeError, match="'team_key' missing"):
-            _parse_issue(data, defaults, 1)
+        with pytest.raises(RuntimeError, match="'team_key' is required"):
+            _parse_issue(data)
 
     def test_parse_issue_missing_title(self) -> None:
         """Test parsing issue without title fails."""
-        defaults = ManifestDefaults(team_key="ENG")
-        data: dict[str, str] = {}
+        data: dict[str, str] = {"team_key": "ENG"}
         with pytest.raises(RuntimeError, match="'title' is required"):
-            _parse_issue(data, defaults, 1)
+            _parse_issue(data)
 
     def test_parse_issue_with_id_alias(self) -> None:
         """Test that 'id' is accepted as alias for 'identifier'."""
-        defaults = ManifestDefaults(team_key="ENG")
-        data: dict[str, str] = {"title": "Test Issue", "id": "ENG-123"}
-        issue = _parse_issue(data, defaults, 1)
-        assert issue.identifier == "ENG-123"
-
-    def test_parse_issue_labels_merge(self) -> None:
-        """Test that issue labels merge with default labels."""
-        defaults = ManifestDefaults(labels=["Default1", "Default2"])
-        data = {
+        data: dict[str, str] = {
             "title": "Test Issue",
             "team_key": "ENG",
-            "labels": ["Issue1", "Issue2"],
+            "id": "ENG-123",
         }
-        issue = _parse_issue(data, defaults, 1)
-        assert issue.labels == ["Default1", "Default2", "Issue1", "Issue2"]
+        issue = _parse_issue(data)
+        assert issue.identifier == "ENG-123"
 
     def test_parse_issue_labels_dedupe(self) -> None:
         """Test that duplicate labels are removed (case-insensitive)."""
-        defaults = ManifestDefaults(labels=["Bug", "Frontend"])
         data = {
             "title": "Test Issue",
             "team_key": "ENG",
-            "labels": ["bug", "Backend"],
+            "labels": ["Bug", "bug", "Frontend"],
         }
-        issue = _parse_issue(data, defaults, 1)
-        assert "Bug" in issue.labels
-        assert "bug" not in issue.labels
-        assert "Frontend" in issue.labels
-        assert "Backend" in issue.labels
+        issue = _parse_issue(data)
+        assert issue.labels == ["Bug", "Frontend"]
 
     def test_parse_issue_with_status_alias(self) -> None:
         """Test that 'status' is accepted as alias for 'state'."""
-        defaults = ManifestDefaults(team_key="ENG")
-        data: dict[str, str] = {"title": "Test Issue", "status": "Done"}
-        issue = _parse_issue(data, defaults, 1)
+        data: dict[str, str] = {
+            "title": "Test Issue",
+            "team_key": "ENG",
+            "status": "Done",
+        }
+        issue = _parse_issue(data)
         assert issue.state == "Done"
 
     def test_parse_issue_status_overrides_state(self) -> None:
         """Test that 'status' takes precedence when both are provided."""
-        defaults = ManifestDefaults(team_key="ENG")
         data: dict[str, str] = {
             "title": "Test Issue",
+            "team_key": "ENG",
             "state": "Todo",
             "status": "Done",
         }
-        issue = _parse_issue(data, defaults, 1)
+        issue = _parse_issue(data)
         assert issue.state == "Done"
-
-    def test_parse_issue_blocked_by_merge(self) -> None:
-        """Test that issue blocked_by merges with default blocked_by."""
-        defaults = ManifestDefaults(team_key="ENG", blocked_by=["Default1", "Default2"])
-        data = {
-            "title": "Test Issue",
-            "blocked_by": ["Issue1", "Issue2"],
-        }
-        issue = _parse_issue(data, defaults, 1)
-        assert issue.blocked_by == ["Default1", "Default2", "Issue1", "Issue2"]
 
     def test_parse_issue_blocked_by_dedupe(self) -> None:
         """Test that duplicate blocked_by items are removed (case-insensitive)."""
-        defaults = ManifestDefaults(team_key="ENG", blocked_by=["Performance", "API"])
         data = {
             "title": "Test Issue",
-            "blocked_by": ["performance", "Database"],
+            "team_key": "ENG",
+            "blocked_by": ["Performance", "performance", "API"],
         }
-        issue = _parse_issue(data, defaults, 1)
-        assert "Performance" in issue.blocked_by
-        assert "performance" not in issue.blocked_by
-        assert "API" in issue.blocked_by
-        assert "Database" in issue.blocked_by
+        issue = _parse_issue(data)
+        assert issue.blocked_by == ["Performance", "API"]
 
     def test_parse_issue_invalid_blocked_by_type(self) -> None:
         """Test parsing issue with invalid blocked_by type."""
-        defaults = ManifestDefaults(team_key="ENG")
         data = {
             "title": "Test Issue",
+            "team_key": "ENG",
             "blocked_by": "not_a_list",
         }
         with pytest.raises(RuntimeError, match="'blocked_by' must be a list"):
-            _parse_issue(data, defaults, 1)
+            _parse_issue(data)
 
 
 class TestHelperFunctions:

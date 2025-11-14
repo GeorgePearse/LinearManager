@@ -22,13 +22,10 @@ def test_check_tests_updates_manifest(monkeypatch, tmp_path, capsys) -> None:
     _write_manifest(
         manifest,
         """
-        defaults:
-          team_key: ENG
-
-        issues:
-          - title: Example task
-            branch: feature/example
-            worktree: ../worktrees/feature
+        team_key: ENG
+        title: Example task
+        branch: feature/example
+        worktree: ../worktrees/feature
         """,
     )
 
@@ -63,8 +60,7 @@ def test_check_tests_updates_manifest(monkeypatch, tmp_path, capsys) -> None:
     assert "pass" in out
 
     data = yaml.safe_load(manifest.read_text(encoding="utf-8"))
-    issue = data["issues"][0]
-    tests = issue["tests"]
+    tests = data["tests"]
     assert tests["pass_or_fail"] == "pass"
     assert tests.get("failure_reason") in (None, "")
     assert tests["branch"] == "feature/example"
@@ -78,11 +74,8 @@ def test_check_tests_marks_missing_branch(tmp_path, capsys) -> None:
     _write_manifest(
         manifest,
         """
-        defaults:
-          team_key: ENG
-
-        issues:
-          - title: Needs branch
+        team_key: ENG
+        title: Needs branch
         """,
     )
 
@@ -93,7 +86,7 @@ def test_check_tests_marks_missing_branch(tmp_path, capsys) -> None:
     assert "missing_branch" in out
 
     data = yaml.safe_load(manifest.read_text(encoding="utf-8"))
-    tests = data["issues"][0]["tests"]
+    tests = data["tests"]
     assert tests["pass_or_fail"] == "missing_branch"
     assert tests["failure_reason"]
     assert "checked_at" in tests

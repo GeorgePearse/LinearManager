@@ -47,7 +47,7 @@ class TestPushWorkflow:
     def test_run_push_missing_api_key(self) -> None:
         """Test push fails without LINEAR_API_KEY."""
         with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
-            f.write("defaults:\n  team_key: ENG\nissues:\n  - title: Test\n")
+            f.write("team_key: ENG\ntitle: Test\n")
             f.flush()
             path = Path(f.name)
 
@@ -95,7 +95,7 @@ class TestPushWorkflow:
         }
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
-            f.write("defaults:\n  team_key: ENG\nissues:\n  - title: Test Issue\n")
+            f.write("team_key: ENG\ntitle: Test Issue\n")
             f.flush()
             path = Path(f.name)
 

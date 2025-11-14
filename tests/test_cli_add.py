@@ -58,9 +58,8 @@ def test_run_add_creates_branch_and_worktree(tmp_path, monkeypatch):
     assert manifest_files
 
     data = yaml.safe_load(manifest_files[0].read_text(encoding="utf-8"))
-    issue = data["issues"][0]
-    branch_name = issue["branch"]
-    worktree_path = Path(issue["worktree"])
+    branch_name = data["branch"]
+    worktree_path = Path(data["worktree"])
 
     assert branch_name
     branch_list = subprocess.run(
@@ -110,8 +109,7 @@ def test_run_add_handles_existing_branch(tmp_path, monkeypatch):
     assert manifest_files
 
     data = yaml.safe_load(manifest_files[0].read_text(encoding="utf-8"))
-    issue = data["issues"][0]
-    branch_name = issue["branch"]
+    branch_name = data["branch"]
     assert branch_name != "test-feature"
     assert branch_name.startswith("test-feature")
 

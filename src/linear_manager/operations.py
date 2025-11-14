@@ -21,21 +21,6 @@ class PushConfig:
 
 
 @dataclass
-class ManifestDefaults:
-    """Defaults that can be shared across issues."""
-
-    team_key: str | None = None
-    state: str | None = None
-    labels: list[str] = field(default_factory=list)
-    assignee_email: str | None = None
-    priority: int | None = None
-    branch: str | None = None
-    worktree: str | None = None
-    project: str | None = None
-    blocked_by: list[str] = field(default_factory=list)
-
-
-@dataclass
 class IssueSpec:
     """Single issue specification parsed from the manifest."""
 
@@ -87,7 +72,7 @@ def run_push(config: PushConfig) -> None:
 
 
 def run_pull(team_keys: list[str], output_dir: Path, limit: int = 100) -> None:
-    """Pull issues from Linear and save them as local YAML files."""
+    """Pull issues from Linear and save them as local YAML files (one file per issue)."""
     token = os.environ.get("LINEAR_API_KEY")
     if not token:
         raise RuntimeError(
@@ -96,6 +81,8 @@ def run_pull(team_keys: list[str], output_dir: Path, limit: int = 100) -> None:
 
     # Ensure output directory exists
     output_dir.mkdir(parents=True, exist_ok=True)
+
+    from datetime import datetime
 
     with LinearClient(token=token) as client:
         for team_key in team_keys:
@@ -108,19 +95,13 @@ def run_pull(team_keys: list[str], output_dir: Path, limit: int = 100) -> None:
                 print(f"  No issues found for team {team_key}.")
                 continue
 
-            # Group issues by some logical grouping (we'll use team for now)
-            # Each team gets its own YAML file
-            filename = f"{team_key.lower()}_issues.yaml"
-            filepath = output_dir / filename
-
-            # Convert Linear issues to our IssueSpec format
-            issue_specs: list[dict[str, Any]] = []
+            # Create one file per issue with flat structure
             for issue_data in issues:
                 spec: dict[str, Any] = {
+                    "team_key": team_key,
                     "identifier": issue_data["identifier"],
                     "title": issue_data["title"],
                     "description": issue_data.get("description", ""),
-                    "team_key": team_key,
                 }
 
                 # Add state if present
@@ -158,23 +139,20 @@ def run_pull(team_keys: list[str], output_dir: Path, limit: int = 100) -> None:
                 # Note: Linear API doesn't currently support issue relations in this query
                 # This is a placeholder for future enhancement
 
-                issue_specs.append(spec)
+                # Create timestamped filename
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S%f")[:17]
+                title_slug = issue_data["title"].lower().replace(" ", "_")[:30]
+                identifier_slug = issue_data["identifier"].lower()
+                filename = f"{timestamp}_{identifier_slug}_{title_slug}.yaml"
+                filepath = output_dir / filename
 
-            # Create manifest structure
-            manifest = {
-                "defaults": {
-                    "team_key": team_key,
-                },
-                "issues": issue_specs,
-            }
+                # Write flat structure to file
+                filepath.write_text(
+                    yaml.safe_dump(spec, default_flow_style=False, sort_keys=False),
+                    encoding="utf-8",
+                )
 
-            # Write to file
-            filepath.write_text(
-                yaml.safe_dump(manifest, default_flow_style=False, sort_keys=False),
-                encoding="utf-8",
-            )
-
-            print(f"  Saved {len(issue_specs)} issue(s) to {filepath}")
+            print(f"  Saved {len(issues)} issue(s) to {output_dir}")
 
 
 def _process_issue(
@@ -274,106 +252,53 @@ def load_manifest(path: Path) -> Manifest:
         raise RuntimeError(f"Manifest {path} is empty.")
     if not isinstance(raw, dict):
         raise RuntimeError("Manifest root must be a mapping.")
-    issues_raw = raw.get("issues")
-    if not issues_raw:
-        raise RuntimeError("Manifest must include a non-empty 'issues' list.")
-    if not isinstance(issues_raw, list):
-        raise RuntimeError("'issues' must be a list.")
 
-    defaults = _parse_defaults(raw.get("defaults", {}))
-    issues = [
-        _parse_issue(item, defaults, index)
-        for index, item in enumerate(issues_raw, start=1)
-    ]
-    return Manifest(issues=issues)
+    # Parse the flat structure directly into an issue
+    issue = _parse_issue(raw)
+    return Manifest(issues=[issue])
 
 
 # Backwards compatibility for callers that may still import the private name.
 _load_manifest = load_manifest
 
 
-def _parse_defaults(data: Any) -> ManifestDefaults:
-    if not data:
-        return ManifestDefaults()
+def _parse_issue(data: Any) -> IssueSpec:
     if not isinstance(data, dict):
-        raise RuntimeError("'defaults' must be a mapping if provided.")
-    labels = data.get("labels") or []
-    if not isinstance(labels, list):
-        raise RuntimeError("'defaults.labels' must be a list of strings.")
-    blocked_by = data.get("blocked_by") or []
-    if not isinstance(blocked_by, list):
-        raise RuntimeError("'defaults.blocked_by' must be a list of strings.")
-    return ManifestDefaults(
-        team_key=_optional_str(data.get("team_key")),
-        state=_optional_str(data.get("status") or data.get("state")),
-        labels=[_require_str(label, "'defaults.labels' entries") for label in labels],
-        assignee_email=_optional_str(
-            data.get("assignee_email") or data.get("assignee")
-        ),
-        priority=_optional_int(data.get("priority")),
-        branch=_optional_str(data.get("branch")),
-        worktree=_optional_str(data.get("worktree")),
-        project=_optional_str(data.get("project")),
-        blocked_by=[
-            _require_str(item, "'defaults.blocked_by' entries") for item in blocked_by
-        ],
-    )
+        raise RuntimeError("Manifest must be a mapping.")
 
-
-def _parse_issue(data: Any, defaults: ManifestDefaults, index: int) -> IssueSpec:
-    if not isinstance(data, dict):
-        raise RuntimeError(f"Issue #{index}: entries must be mappings.")
-
-    title = _require_str(data.get("title"), f"Issue #{index}: 'title' is required.")
+    title = _require_str(data.get("title"), "'title' is required.")
     description = _optional_str(data.get("description")) or ""
     identifier = _optional_str(data.get("identifier") or data.get("id"))
-    state = _optional_str(data.get("status") or data.get("state")) or defaults.state
-    team_key = _optional_str(data.get("team_key")) or defaults.team_key
+    state = _optional_str(data.get("status") or data.get("state"))
+    team_key = _optional_str(data.get("team_key"))
     if not team_key:
-        raise RuntimeError(
-            f"Issue #{index}: 'team_key' missing and no default provided."
-        )
+        raise RuntimeError("'team_key' is required.")
 
-    labels_raw = data.get("labels")
-    labels = defaults.labels.copy()
-    if labels_raw:
-        if not isinstance(labels_raw, list):
-            raise RuntimeError(f"Issue #{index}: 'labels' must be a list of strings.")
-        labels.extend(
-            _require_str(label, f"Issue #{index}: label entries")
-            for label in labels_raw
-        )
+    labels_raw = data.get("labels") or []
+    if not isinstance(labels_raw, list):
+        raise RuntimeError("'labels' must be a list of strings.")
+    labels = [
+        _require_str(label, "'labels' entries must be strings") for label in labels_raw
+    ]
     labels = _dedupe(labels)
 
-    assignee_email = (
-        _optional_str(data.get("assignee_email") or data.get("assignee"))
-        or defaults.assignee_email
-    )
+    assignee_email = _optional_str(data.get("assignee_email") or data.get("assignee"))
     priority = _optional_int(data.get("priority"), allow_none=True)
-    if priority is None:
-        priority = defaults.priority
 
     complete_raw = data.get("complete")
     complete = bool(complete_raw) if complete_raw is not None else False
-    branch = _optional_str(data.get("branch")) or defaults.branch
-    worktree = _optional_str(data.get("worktree")) or defaults.worktree
-    project_name = (
-        _optional_str(data.get("project_name") or data.get("project"))
-        or defaults.project
-    )
+    branch = _optional_str(data.get("branch"))
+    worktree = _optional_str(data.get("worktree"))
+    project_name = _optional_str(data.get("project_name") or data.get("project"))
     project_id = _optional_str(data.get("project_id"))
 
-    blocked_by_raw = data.get("blocked_by")
-    blocked_by = defaults.blocked_by.copy()
-    if blocked_by_raw:
-        if not isinstance(blocked_by_raw, list):
-            raise RuntimeError(
-                f"Issue #{index}: 'blocked_by' must be a list of strings."
-            )
-        blocked_by.extend(
-            _require_str(item, f"Issue #{index}: blocked_by entries")
-            for item in blocked_by_raw
-        )
+    blocked_by_raw = data.get("blocked_by") or []
+    if not isinstance(blocked_by_raw, list):
+        raise RuntimeError("'blocked_by' must be a list of strings.")
+    blocked_by = [
+        _require_str(item, "'blocked_by' entries must be strings")
+        for item in blocked_by_raw
+    ]
     blocked_by = _dedupe(blocked_by)
 
     return IssueSpec(

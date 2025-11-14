@@ -1,9 +1,5 @@
-defaults:
-  team_key: ENG
-  priority: 2
-
-issues:
-  - title: Implement OAuth2 authentication
-    description: Add OAuth2 support for third-party integrations
-    status: Done
-    priority: 3
+team_key: ENG
+title: Implement OAuth2 authentication
+description: Add OAuth2 support for third-party integrations
+status: Done
+priority: 3
