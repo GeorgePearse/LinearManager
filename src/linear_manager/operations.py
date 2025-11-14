@@ -154,6 +154,42 @@ def run_pull(team_keys: list[str], output_dir: Path, limit: int = 100) -> None:
             print(f"  Saved {len(issues)} issue(s) to {output_dir}")
 
 
+def _format_blocked_by_section(
+    blocked_by: list[str], client: "LinearClient", team_id: str, dry_run: bool
+) -> str:
+    """Format blocked_by list as markdown with Linear links where possible.
+
+    Args:
+        blocked_by: List of issue titles that block this issue
+        client: LinearClient instance for searching issues
+        team_id: Team ID to search within
+        dry_run: If True, don't make API calls, just list titles
+
+    Returns:
+        Formatted markdown section with links, or empty string if no blockers
+    """
+    if not blocked_by:
+        return ""
+
+    items = []
+    for blocker_title in blocked_by:
+        if dry_run:
+            # In dry-run mode, don't make API calls
+            items.append(f"- {blocker_title}")
+        else:
+            # Try to find the issue and create a link
+            issue = client.search_issue_by_title(team_id, blocker_title)
+            if issue:
+                items.append(
+                    f"- [{issue['identifier']}]({issue['url']}) - {issue['title']}"
+                )
+            else:
+                items.append(f"- {blocker_title} *(not found in Linear)*")
+
+    formatted_items = "\n".join(items)
+    return f"\n\n## Blocked By\n{formatted_items}"
+
+
 def _process_issue(
     client: "LinearClient", context: "TeamContext", spec: IssueSpec, config: PushConfig
 ) -> None:
@@ -178,9 +214,17 @@ def _process_issue(
             )
 
     if existing:
+        # Enhance description with blocked_by links if present
+        enhanced_description = spec.description
+        if spec.blocked_by:
+            blocked_by_section = _format_blocked_by_section(
+                spec.blocked_by, client, context.id, config.dry_run
+            )
+            enhanced_description = spec.description + blocked_by_section
+
         update_input: dict[str, Any] = {
             "title": spec.title,
-            "description": spec.description,
+            "description": enhanced_description,
         }
         if spec.priority is not None:
             update_input["priority"] = spec.priority
@@ -202,10 +246,18 @@ def _process_issue(
             print(f"{descriptor}: updated {updated['identifier']} ({updated['url']}).")
         return
 
+    # Enhance description with blocked_by links if present
+    enhanced_description = spec.description
+    if spec.blocked_by:
+        blocked_by_section = _format_blocked_by_section(
+            spec.blocked_by, client, context.id, config.dry_run
+        )
+        enhanced_description = spec.description + blocked_by_section
+
     create_input: dict[str, Any] = {
         "teamId": context.id,
         "title": spec.title,
-        "description": spec.description,
+        "description": enhanced_description,
     }
     if spec.priority is not None:
         create_input["priority"] = spec.priority
@@ -517,6 +569,18 @@ class LinearClient:
         )
         return payload.get("issue")
 
+    def search_issue_by_title(self, team_id: str, title: str) -> dict[str, Any] | None:
+        """Search for an issue by title within a team.
+
+        Returns the first issue matching the title (case-insensitive), or None if not found.
+        """
+        payload = self._request(
+            SEARCH_ISSUE_BY_TITLE_QUERY,
+            {"teamId": team_id, "title": title},
+        )
+        issues = payload.get("issues", {}).get("nodes", [])
+        return issues[0] if issues else None
+
     def create_issue(self, issue_input: dict[str, Any]) -> dict[str, Any]:
         payload = self._request(
             CREATE_ISSUE_MUTATION,
@@ -751,6 +815,23 @@ query FetchTeamIssues($teamKey: String!, $first: Int!, $after: String) {
           endCursor
         }
       }
+    }
+  }
+}
+""".strip()
+
+
+SEARCH_ISSUE_BY_TITLE_QUERY = """
+query SearchIssueByTitle($teamId: String!, $title: String!) {
+  issues(filter: {
+    team: { id: { eq: $teamId } },
+    title: { eqIgnoreCase: $title }
+  }, first: 1) {
+    nodes {
+      id
+      identifier
+      url
+      title
     }
   }
 }
