@@ -2,9 +2,9 @@
 
 Even using the Linear MCP can slow down your work nowadays. This is a simple quick solution so that maintaining your tickets doesn't take you out of your flow.
 
-**LinearManager supports both push and pull operations:**
-- **Push**: Upload local YAML files to Linear to create/update issues
+**LinearManager supports both pull and push operations:**
 - **Pull**: Download issues from Linear to local YAML files
+- **Push**: Upload local YAML files to Linear to create/update issues
 
 <img width="1845" height="661" alt="image" src="https://github.com/user-attachments/assets/bb37838c-3cc2-4d60-a9a9-6e1c8f48d005" />
 
@@ -91,27 +91,9 @@ description: Currently implementing
 state: In Progress  # Sets the issue to "In Progress" state
 ```
 
-## Push and Pull Operations
+## Pull and Push Operations
 
-LinearManager provides both **push** and **pull** operations for complete control over your Linear tickets.
-
-### Push to Linear
-
-Upload local YAML files to Linear to create or update issues:
-
-```bash
-# Push all YAML files in current directory to Linear
-manager push .
-
-# Push all YAML files in a specific directory
-manager push path/to/manifests
-
-# Push a single file
-manager push path/to/issues.yaml
-
-# Preview changes without pushing
-manager push . --dry-run
-```
+LinearManager provides both **pull** and **push** operations for complete control over your Linear tickets.
 
 ### Pull from Linear
 
@@ -141,6 +123,24 @@ The pull command:
 - Creates one YAML file per team (e.g., `eng_issues.yaml`)
 - Includes all issue metadata: identifier, title, description, state, priority, assignee, labels, and branch name
 - Is read-only - doesn't push any local changes to Linear
+
+### Push to Linear
+
+Upload local YAML files to Linear to create or update issues:
+
+```bash
+# Push all YAML files in current directory to Linear
+manager push .
+
+# Push all YAML files in a specific directory
+manager push path/to/manifests
+
+# Push a single file
+manager push path/to/issues.yaml
+
+# Preview changes without pushing
+manager push . --dry-run
+```
 
 ### Common Workflows
 
