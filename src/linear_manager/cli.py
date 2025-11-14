@@ -3,17 +3,12 @@
 from __future__ import annotations
 
 import argparse
-import json
 import re
 import shutil
-import subprocess
 import sys
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Iterable
 
-import yaml
 
 try:  # pragma: no cover - fallback when colorama is absent
     from colorama import Fore, Style, init
@@ -60,11 +55,6 @@ def _ljust_visible(text: str, width: int) -> str:
     return text + (" " * padding)
 
 
-def _utc_timestamp() -> str:
-    """Return an ISO-8601 timestamp in UTC."""
-    return datetime.now(timezone.utc).isoformat()
-
-
 def _status_color(status: str) -> str:
     """Map a status string to a representative color."""
     mapping: dict[str, str] = {
@@ -81,211 +71,6 @@ def _status_color(status: str) -> str:
         "unknown": str(Fore.CYAN),
     }
     return mapping.get(status.lower(), str(Fore.CYAN))
-
-
-def _summarize_check_buckets(checks: list[dict[str, Any]], exit_code: int) -> str:
-    """Determine an overall status from gh check buckets."""
-    buckets = {
-        str(check.get("bucket")).lower() for check in checks if check.get("bucket")
-    }
-    if "fail" in buckets:
-        return "fail"
-    if "pending" in buckets:
-        return "pending"
-    if "cancel" in buckets:
-        return "cancelled"
-    if "skipping" in buckets:
-        return "skipped"
-    if "pass" in buckets:
-        return "pass"
-    if checks:
-        return "unknown"
-    if exit_code == 8:
-        return "pending"
-    if exit_code == 0:
-        return "no_checks"
-    return "error"
-
-
-def _run_gh_checks(worktree: Path, branch: str) -> dict[str, Any]:
-    """Invoke `gh pr checks` for the provided branch."""
-    command = [
-        "gh",
-        "pr",
-        "checks",
-        branch,
-        "--json",
-        "name,state,bucket,workflow",
-    ]
-    try:
-        completed = subprocess.run(
-            command,
-            cwd=str(worktree),
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-    except FileNotFoundError:
-        return {
-            "pass_or_fail": "gh_missing",
-            "failure_reason": "GitHub CLI (gh) not found on PATH.",
-            "details": [],
-        }
-
-    stdout = completed.stdout.strip()
-    details: list[dict[str, Any]] = []
-    if stdout:
-        try:
-            parsed = json.loads(stdout)
-            if isinstance(parsed, list):
-                for item in parsed:
-                    detail: dict[str, Any] = {}
-                    for key in ("name", "state", "bucket", "workflow"):
-                        value = item.get(key)
-                        if value is not None:
-                            detail[key] = value
-                    details.append(detail)
-        except json.JSONDecodeError:
-            return {
-                "pass_or_fail": "parse_error",
-                "failure_reason": "Unable to parse JSON output from gh.",
-                "details": [],
-                "raw": stdout,
-            }
-
-    status = _summarize_check_buckets(details, completed.returncode)
-    stderr = completed.stderr.strip()
-
-    failure_reason: str | None = None
-    if status == "fail":
-        failed = next(
-            (item for item in details if str(item.get("bucket")).lower() == "fail"),
-            None,
-        )
-        workflow = failed.get("workflow") if failed else None
-        name = failed.get("name") if failed else None
-        state = failed.get("state") if failed else None
-        if workflow or name:
-            label = workflow or name
-            suffix = f" ({state})" if state else ""
-            failure_reason = f"{label} failed{suffix}"
-        elif stderr:
-            failure_reason = stderr
-        else:
-            failure_reason = "One or more checks reported failures."
-    elif status == "pending":
-        failure_reason = stderr or "Checks are still running."
-    elif status in {"cancelled", "skipped"}:
-        failure_reason = stderr or f"Checks {status}."
-    elif status == "no_checks":
-        failure_reason = stderr or "No checks available for this branch."
-    elif status == "error":
-        failure_reason = stderr or f"`gh pr checks` exited with {completed.returncode}"
-    elif status in {"gh_missing", "parse_error"}:
-        failure_reason = stderr or "Unable to evaluate GitHub checks."
-
-    result: dict[str, Any] = {
-        "pass_or_fail": status,
-        "failure_reason": failure_reason,
-        "details": details,
-        "exit_code": completed.returncode,
-    }
-    if stderr:
-        result["message"] = stderr
-    if not details and status == "error" and not stderr:
-        result["message"] = f"`gh pr checks` exited with {completed.returncode}"
-    return result
-
-
-def _evaluate_issue_tests(issue: dict[str, Any], manifest_path: Path) -> dict[str, Any]:
-    """Evaluate tests for a single issue and return a status payload."""
-    timestamp = _utc_timestamp()
-    tests_entry: dict[str, Any] = {"checked_at": timestamp}
-
-    branch = issue.get("branch")
-    if not branch:
-        tests_entry["pass_or_fail"] = "missing_branch"
-        tests_entry["failure_reason"] = "Branch not specified in manifest."
-        return tests_entry
-
-    tests_entry["branch"] = branch
-
-    # Use current directory for gh checks
-    gh_result = _run_gh_checks(Path.cwd(), branch)
-    tests_entry.update(gh_result)
-    tests_entry.setdefault("pass_or_fail", "unknown")
-    if tests_entry["pass_or_fail"] == "pass":
-        tests_entry.setdefault("failure_reason", None)
-    else:
-        tests_entry.setdefault("failure_reason", "Unknown test state.")
-    return tests_entry
-
-
-def _process_manifest_for_tests(
-    manifest_path: Path,
-) -> list[tuple[str, dict[str, Any]]]:
-    """Process a single manifest file for test status updates."""
-    raw = yaml.safe_load(manifest_path.read_text(encoding="utf-8")) or {}
-    if not isinstance(raw, dict):
-        return []
-
-    # With flat structure, each file contains a single issue
-    tests_entry = _evaluate_issue_tests(raw, manifest_path)
-    previous = raw.get("tests")
-    changed = previous != tests_entry
-
-    if changed:
-        raw["tests"] = tests_entry
-        manifest_path.write_text(
-            yaml.safe_dump(raw, default_flow_style=False, sort_keys=False),
-            encoding="utf-8",
-        )
-
-    title = raw.get("title") or "Unknown issue"
-    return [(title, tests_entry)]
-
-
-def run_check_tests(path: Path, max_workers: int = 4) -> int:
-    """Run GitHub test checks across manifests concurrently."""
-    manifest_files = _discover_manifest_files(path)
-    if not manifest_files:
-        print(f"No YAML files found in {path}")
-        return 0
-
-    worker_count = max(1, max_workers)
-    errors = 0
-    print(f"Running test checks for {len(manifest_files)} manifest file(s)...")
-
-    with ThreadPoolExecutor(
-        max_workers=min(worker_count, len(manifest_files))
-    ) as executor:
-        futures = {
-            executor.submit(_process_manifest_for_tests, manifest): manifest
-            for manifest in manifest_files
-        }
-        for future in as_completed(futures):
-            manifest = futures[future]
-            try:
-                entries = future.result()
-            except Exception as exc:  # pragma: no cover - defensive guard
-                errors += 1
-                print(f"{Fore.RED}✗ {manifest}: {exc}{Style.RESET_ALL}")
-                continue
-
-            if not entries:
-                print(f"{Fore.CYAN}- {manifest}: no issues found{Style.RESET_ALL}")
-                continue
-
-            for title, tests in entries:
-                status = str(tests.get("pass_or_fail", "unknown"))
-                color = _status_color(status)
-                print(
-                    f"{Fore.CYAN}{manifest.name}{Style.RESET_ALL} "
-                    f"→ {color}{status}{Style.RESET_ALL} "
-                    f"({title})"
-                )
-
-    return 1 if errors else 0
 
 
 def _get_tasks_directory() -> Path:
@@ -826,52 +611,6 @@ def run_list(
     return 0
 
 
-def run_add(
-    title: str,
-    description: str | None,
-    team_key: str,
-    priority: int | None,
-    assignee: str | None,
-    labels: list[str] | None,
-) -> int:
-    """Add a new ticket to the tasks directory."""
-    tasks_dir = _get_tasks_directory()
-
-    # Ensure tasks directory exists
-    tasks_dir.mkdir(parents=True, exist_ok=True)
-
-    # Create a timestamped filename
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"{timestamp}_{title.lower().replace(' ', '_')[:30]}.yaml"
-    filepath = tasks_dir / filename
-
-    # Build the issue data (flat structure)
-    issue_dict: dict[str, Any] = {
-        "team_key": team_key,
-        "title": title,
-        "description": description or "",
-    }
-
-    # Add optional fields if provided
-    if priority is not None:
-        issue_dict["priority"] = priority
-    if assignee:
-        issue_dict["assignee_email"] = assignee
-    if labels:
-        issue_dict["labels"] = labels
-
-    # Write to file (flat structure, no nesting)
-    with filepath.open("w", encoding="utf-8") as f:
-        yaml.safe_dump(issue_dict, f, default_flow_style=False, sort_keys=False)
-
-    print(f"{Fore.GREEN}✓ Ticket created successfully:{Style.RESET_ALL}")
-    print(f"  {Fore.CYAN}File:{Style.RESET_ALL} {filepath}")
-    print(f"  {Fore.CYAN}Title:{Style.RESET_ALL} {title}")
-    print(f"  {Fore.CYAN}Team:{Style.RESET_ALL} {team_key}")
-
-    return 0
-
-
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="manager",
@@ -929,78 +668,6 @@ def build_parser() -> argparse.ArgumentParser:
         "-d",
         action="store_true",
         help="Include completed tickets in the list (by default, completed tickets are hidden).",
-    )
-
-    check_parser = subparsers.add_parser(
-        "check",
-        help="Run local validations against manifests.",
-    )
-    check_subparsers = check_parser.add_subparsers(
-        dest="check_command",
-        help="Check commands",
-    )
-    check_subparsers.required = True
-
-    tests_parser = check_subparsers.add_parser(
-        "tests",
-        help="Inspect GitHub test status for tracked branches.",
-    )
-    tests_parser.add_argument(
-        "path",
-        type=Path,
-        nargs="?",
-        default=None,
-        help="Path to a manifest file or directory (defaults to LinearManager/tasks).",
-    )
-    tests_parser.add_argument(
-        "--workers",
-        type=int,
-        default=4,
-        help="Number of concurrent GitHub status checks to run.",
-    )
-
-    # add subcommand
-    add_parser = subparsers.add_parser(
-        "add",
-        help="Add a new ticket to the tasks directory.",
-    )
-    add_parser.add_argument(
-        "title",
-        type=str,
-        help="Title of the ticket",
-    )
-    add_parser.add_argument(
-        "--description",
-        "-d",
-        type=str,
-        help="Description of the ticket",
-    )
-    add_parser.add_argument(
-        "--team-key",
-        "-t",
-        type=str,
-        required=True,
-        help="Team key (e.g., ENG, PROD)",
-    )
-    add_parser.add_argument(
-        "--priority",
-        "-p",
-        type=int,
-        choices=[0, 1, 2, 3, 4],
-        help="Priority (0=None, 1=Low, 2=Medium, 3=High, 4=Urgent)",
-    )
-    add_parser.add_argument(
-        "--assignee",
-        "-a",
-        type=str,
-        help="Assignee email address",
-    )
-    add_parser.add_argument(
-        "--labels",
-        "-l",
-        type=str,
-        nargs="+",
-        help="Labels for the ticket",
     )
 
     # pull subcommand
@@ -1093,29 +760,6 @@ def main(argv: list[str] | None = None) -> int:
                 by_project=args.by_project,
                 by_block=args.by_block,
                 include_done=args.include_done,
-            )
-        except Exception as exc:  # pragma: no cover - top-level handler
-            parser.error(str(exc))
-            return 1
-    elif args.command == "check":
-        try:
-            if args.check_command == "tests":
-                path = args.path if args.path is not None else _get_tasks_directory()
-                return run_check_tests(path, max_workers=args.workers)
-            parser.error(f"Unknown check command '{args.check_command}'.")
-            return 1
-        except Exception as exc:  # pragma: no cover - top-level handler
-            parser.error(str(exc))
-            return 1
-    elif args.command == "add":
-        try:
-            return run_add(
-                title=args.title,
-                description=args.description,
-                team_key=args.team_key,
-                priority=args.priority,
-                assignee=args.assignee,
-                labels=args.labels,
             )
         except Exception as exc:  # pragma: no cover - top-level handler
             parser.error(str(exc))
