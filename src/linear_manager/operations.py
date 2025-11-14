@@ -1,4 +1,4 @@
-"""Core sync logic for LinearManager - supports both push (to Linear) and pull (from Linear) operations."""
+"""Core operations for LinearManager - supports both push (to Linear) and pull (from Linear) operations."""
 
 from __future__ import annotations
 
@@ -12,8 +12,8 @@ import yaml
 
 
 @dataclass(frozen=True)
-class SyncConfig:
-    """Configuration container for a sync invocation."""
+class PushConfig:
+    """Configuration container for a push operation."""
 
     manifest_path: Path
     dry_run: bool = False
@@ -66,14 +66,14 @@ class LinearApiError(RuntimeError):
     """Raised when the Linear API returns an error."""
 
 
-def run_sync(config: SyncConfig) -> None:
-    """Execute a sync according to the provided configuration."""
+def run_push(config: PushConfig) -> None:
+    """Push local YAML manifest to Linear according to the provided configuration."""
 
     manifest = load_manifest(config.manifest_path)
     token = os.environ.get("LINEAR_API_KEY")
     if not token:
         raise RuntimeError(
-            "LINEAR_API_KEY environment variable is required to sync with Linear."
+            "LINEAR_API_KEY environment variable is required to push to Linear."
         )
 
     team_keys = sorted({issue.team_key for issue in manifest.issues})
@@ -181,7 +181,7 @@ def run_pull(team_keys: list[str], output_dir: Path, limit: int = 100) -> None:
 
 
 def _process_issue(
-    client: "LinearClient", context: "TeamContext", spec: IssueSpec, config: SyncConfig
+    client: "LinearClient", context: "TeamContext", spec: IssueSpec, config: PushConfig
 ) -> None:
     descriptor = f"[{context.key}] {spec.title}"
 

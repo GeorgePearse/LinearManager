@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from linear_manager.sync import (
+from linear_manager.operations import (
     ManifestDefaults,
     _load_manifest,
     _parse_defaults,

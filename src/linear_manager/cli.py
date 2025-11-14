@@ -32,7 +32,7 @@ except ImportError:  # pragma: no cover - fallback used in minimal environments
     Fore = _Color()
     Style = _Style()
 
-from linear_manager.sync import IssueSpec, SyncConfig, load_manifest, run_sync, run_pull
+from linear_manager.operations import IssueSpec, PushConfig, load_manifest, run_push, run_pull
 from . import config
 from .git_worktree import GitWorktreeError, create_branch_and_worktree
 
@@ -861,21 +861,21 @@ def run_add(
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="manager",
-        description="Bidirectional sync tool for Linear issues. Push local YAML files to Linear or pull Linear issues to local YAML files.",
+        description="Manage Linear issues with local YAML files. Push local YAML files to Linear or pull Linear issues to local YAML files.",
     )
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
-    # sync subcommand
-    sync_parser = subparsers.add_parser(
-        "sync",
+    # push subcommand
+    push_parser = subparsers.add_parser(
+        "push",
         help="Push local YAML file(s) to Linear (create/update issues)",
     )
-    sync_parser.add_argument(
+    push_parser.add_argument(
         "path",
         type=Path,
-        help="Path to YAML file or directory containing YAML files to sync.",
+        help="Path to YAML file or directory containing YAML files to push.",
     )
-    sync_parser.add_argument(
+    push_parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Validate manifests without writing to Linear.",
@@ -1035,8 +1035,8 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
 
-    # Handle sync subcommand
-    if args.command == "sync":
+    # Handle push subcommand
+    if args.command == "push":
         path = args.path
         if path.is_dir():
             # Find all YAML files recursively
@@ -1045,34 +1045,34 @@ def main(argv: list[str] | None = None) -> int:
                 parser.error(f"No YAML files found in {path}")
                 return 1
 
-            print(f"Found {len(yaml_files)} YAML file(s) to sync:")
+            print(f"Found {len(yaml_files)} YAML file(s) to push:")
             for yaml_file in yaml_files:
                 print(f"  - {yaml_file.relative_to(path)}")
             print()
 
             failed_files = []
             for yaml_file in yaml_files:
-                print(f"==> Syncing {yaml_file.relative_to(path)}")
-                config = SyncConfig(
+                print(f"==> Pushing {yaml_file.relative_to(path)}")
+                config = PushConfig(
                     manifest_path=yaml_file,
                     dry_run=args.dry_run,
                 )
                 try:
-                    run_sync(config)
+                    run_push(config)
                 except Exception as exc:
                     print(f"ERROR: {exc}")
                     failed_files.append(yaml_file)
                 print()
 
             if failed_files:
-                print(f"Failed to sync {len(failed_files)} file(s):")
+                print(f"Failed to push {len(failed_files)} file(s):")
                 for failed in failed_files:
                     print(f"  - {failed.relative_to(path)}")
                 return 1
             return 0
         else:
             # Single file
-            config = SyncConfig(
+            config = PushConfig(
                 manifest_path=path,
                 dry_run=args.dry_run,
             )
@@ -1124,13 +1124,13 @@ def main(argv: list[str] | None = None) -> int:
             parser.print_help()
             return 1
 
-        config = SyncConfig(
+        config = PushConfig(
             manifest_path=args.manifest,
             dry_run=args.dry_run,
         )
 
     try:
-        run_sync(config)
+        run_push(config)
     except Exception as exc:  # pragma: no cover - top-level handler
         parser.error(str(exc))
         return 1

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from linear_manager.sync import TeamContext, _normalize_key
+from linear_manager.operations import TeamContext, _normalize_key
 
 
 class TestTeamContext:

@@ -7,7 +7,7 @@ from unittest.mock import Mock, patch
 import httpx
 import pytest
 
-from linear_manager.sync import LinearClient, LinearApiError
+from linear_manager.operations import LinearClient, LinearApiError
 
 
 class TestLinearClient:
@@ -21,14 +21,14 @@ class TestLinearClient:
     @pytest.fixture
     def linear_client(self, mock_client: Mock) -> LinearClient:
         """Create a LinearClient with mock httpx client."""
-        with patch("linear_manager.sync.httpx.Client", return_value=mock_client):
+        with patch("linear_manager.operations.httpx.Client", return_value=mock_client):
             client = LinearClient(token="test-token")
             client._client = mock_client
             return client
 
     def test_client_initialization(self) -> None:
         """Test client is initialized with correct headers."""
-        with patch("linear_manager.sync.httpx.Client") as mock_httpx:
+        with patch("linear_manager.operations.httpx.Client") as mock_httpx:
             LinearClient(token="test-token")
             mock_httpx.assert_called_once()
             call_kwargs = mock_httpx.call_args[1]
@@ -37,7 +37,7 @@ class TestLinearClient:
 
     def test_context_manager(self) -> None:
         """Test client works as context manager."""
-        with patch("linear_manager.sync.httpx.Client") as mock_httpx:
+        with patch("linear_manager.operations.httpx.Client") as mock_httpx:
             mock_instance = Mock()
             mock_httpx.return_value = mock_instance
 

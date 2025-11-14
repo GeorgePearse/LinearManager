@@ -14,50 +14,50 @@ from linear_manager.cli import build_parser, main
 class TestCliParser:
     """Test CLI argument parsing."""
 
-    def test_parser_sync_subcommand_single_file(self) -> None:
-        """Test parsing sync subcommand with single file."""
+    def test_parser_push_subcommand_single_file(self) -> None:
+        """Test parsing push subcommand with single file."""
         parser = build_parser()
-        args = parser.parse_args(["sync", "issues.yaml"])
-        assert args.command == "sync"
+        args = parser.parse_args(["push", "issues.yaml"])
+        assert args.command == "push"
         assert args.path == Path("issues.yaml")
         assert args.dry_run is False
 
-    def test_parser_sync_subcommand_with_flags(self) -> None:
-        """Test parsing sync subcommand with flags."""
+    def test_parser_push_subcommand_with_flags(self) -> None:
+        """Test parsing push subcommand with flags."""
         parser = build_parser()
-        args = parser.parse_args(["sync", "issues.yaml", "--dry-run"])
-        assert args.command == "sync"
+        args = parser.parse_args(["push", "issues.yaml", "--dry-run"])
+        assert args.command == "push"
         assert args.dry_run is True
 
-    def test_parser_sync_subcommand_directory(self) -> None:
-        """Test parsing sync subcommand with directory."""
+    def test_parser_push_subcommand_directory(self) -> None:
+        """Test parsing push subcommand with directory."""
         parser = build_parser()
-        args = parser.parse_args(["sync", "manifests/"])
-        assert args.command == "sync"
+        args = parser.parse_args(["push", "manifests/"])
+        assert args.command == "push"
         assert args.path == Path("manifests/")
 
 
 class TestCliMain:
     """Test main CLI entry point."""
 
-    @patch("linear_manager.cli.run_sync")
-    def test_main_sync_single_file(self, mock_run_sync: Mock) -> None:
-        """Test main with sync subcommand and single file."""
+    @patch("linear_manager.cli.run_push")
+    def test_main_push_single_file(self, mock_run_push: Mock) -> None:
+        """Test main with push subcommand and single file."""
         with tempfile.NamedTemporaryFile(suffix=".yaml", delete=False) as f:
             f.write(b"defaults:\n  team_key: ENG\nissues:\n  - title: Test\n")
             f.flush()
             path = Path(f.name)
 
         try:
-            result = main(["sync", str(path)])
+            result = main(["push", str(path)])
             assert result == 0
-            assert mock_run_sync.called
+            assert mock_run_push.called
         finally:
             path.unlink()
 
-    @patch("linear_manager.cli.run_sync")
-    def test_main_sync_directory(self, mock_run_sync: Mock) -> None:
-        """Test main with sync subcommand and directory."""
+    @patch("linear_manager.cli.run_push")
+    def test_main_push_directory(self, mock_run_push: Mock) -> None:
+        """Test main with push subcommand and directory."""
         with tempfile.TemporaryDirectory() as tmpdir:
             # Create multiple YAML files
             yaml1 = Path(tmpdir) / "issue1.yaml"
@@ -65,23 +65,23 @@ class TestCliMain:
             yaml2 = Path(tmpdir) / "issue2.yaml"
             yaml2.write_text("defaults:\n  team_key: ENG\nissues:\n  - title: Test2\n")
 
-            result = main(["sync", tmpdir])
+            result = main(["push", tmpdir])
             assert result == 0
-            assert mock_run_sync.call_count == 2
+            assert mock_run_push.call_count == 2
 
-    def test_main_sync_directory_no_yaml_files(self) -> None:
+    def test_main_push_directory_no_yaml_files(self) -> None:
         """Test main with directory containing no YAML files."""
         with tempfile.TemporaryDirectory() as tmpdir:
             # Create a non-YAML file
             (Path(tmpdir) / "test.txt").write_text("not yaml")
             with pytest.raises(SystemExit) as exc_info:
-                main(["sync", tmpdir])
+                main(["push", tmpdir])
             assert exc_info.value.code == 2
 
-    @patch("linear_manager.cli.run_sync")
-    def test_main_sync_directory_with_failure(self, mock_run_sync: Mock) -> None:
+    @patch("linear_manager.cli.run_push")
+    def test_main_push_directory_with_failure(self, mock_run_push: Mock) -> None:
         """Test main with directory when some files fail."""
-        mock_run_sync.side_effect = [None, RuntimeError("Test error")]
+        mock_run_push.side_effect = [None, RuntimeError("Test error")]
 
         with tempfile.TemporaryDirectory() as tmpdir:
             yaml1 = Path(tmpdir) / "issue1.yaml"
@@ -89,17 +89,17 @@ class TestCliMain:
             yaml2 = Path(tmpdir) / "issue2.yaml"
             yaml2.write_text("defaults:\n  team_key: ENG\nissues:\n  - title: Test2\n")
 
-            result = main(["sync", tmpdir])
+            result = main(["push", tmpdir])
             assert result == 1
-            assert mock_run_sync.call_count == 2
+            assert mock_run_push.call_count == 2
 
     def test_main_no_arguments(self) -> None:
         """Test main with no arguments."""
         result = main([])
         assert result == 1
 
-    @patch("linear_manager.cli.run_sync")
-    def test_main_with_dry_run(self, mock_run_sync: Mock) -> None:
+    @patch("linear_manager.cli.run_push")
+    def test_main_with_dry_run(self, mock_run_push: Mock) -> None:
         """Test main with dry-run flag."""
         with tempfile.NamedTemporaryFile(suffix=".yaml", delete=False) as f:
             f.write(b"defaults:\n  team_key: ENG\nissues:\n  - title: Test\n")
@@ -107,9 +107,9 @@ class TestCliMain:
             path = Path(f.name)
 
         try:
-            result = main(["sync", str(path), "--dry-run"])
+            result = main(["push", str(path), "--dry-run"])
             assert result == 0
-            call_args = mock_run_sync.call_args[0][0]
+            call_args = mock_run_push.call_args[0][0]
             assert call_args.dry_run is True
         finally:
             path.unlink()

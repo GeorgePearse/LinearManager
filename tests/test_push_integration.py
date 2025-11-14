@@ -1,4 +1,4 @@
-"""Integration tests for the sync workflow."""
+"""Integration tests for the push workflow."""
 
 from __future__ import annotations
 
@@ -9,9 +9,9 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from linear_manager.sync import (
-    SyncConfig,
-    run_sync,
+from linear_manager.operations import (
+    PushConfig,
+    run_push,
     IssueSpec,
     TeamContext,
     LinearClient,
@@ -19,8 +19,8 @@ from linear_manager.sync import (
 )
 
 
-class TestSyncWorkflow:
-    """Test complete sync workflow."""
+class TestPushWorkflow:
+    """Test complete push workflow."""
 
     @pytest.fixture
     def team_context(self) -> TeamContext:
@@ -44,8 +44,8 @@ class TestSyncWorkflow:
         client.__exit__ = Mock(return_value=None)
         return client
 
-    def test_run_sync_missing_api_key(self) -> None:
-        """Test sync fails without LINEAR_API_KEY."""
+    def test_run_push_missing_api_key(self) -> None:
+        """Test push fails without LINEAR_API_KEY."""
         with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write("defaults:\n  team_key: ENG\nissues:\n  - title: Test\n")
             f.flush()
@@ -55,21 +55,21 @@ class TestSyncWorkflow:
             # Ensure LINEAR_API_KEY is not set
             old_key = os.environ.pop("LINEAR_API_KEY", None)
             try:
-                config = SyncConfig(manifest_path=path)
+                config = PushConfig(manifest_path=path)
                 with pytest.raises(
                     RuntimeError,
                     match="LINEAR_API_KEY environment variable is required",
                 ):
-                    run_sync(config)
+                    run_push(config)
             finally:
                 if old_key:
                     os.environ["LINEAR_API_KEY"] = old_key
         finally:
             path.unlink()
 
-    @patch("linear_manager.sync.LinearClient")
-    def test_run_sync_creates_issues(self, mock_client_class: Mock) -> None:
-        """Test sync creates new issues."""
+    @patch("linear_manager.operations.LinearClient")
+    def test_run_push_creates_issues(self, mock_client_class: Mock) -> None:
+        """Test push creates new issues."""
         mock_client = Mock(spec=LinearClient)
         mock_client.__enter__ = Mock(return_value=mock_client)
         mock_client.__exit__ = Mock(return_value=None)
@@ -101,8 +101,8 @@ class TestSyncWorkflow:
 
         try:
             os.environ["LINEAR_API_KEY"] = "test-token"
-            config = SyncConfig(manifest_path=path)
-            run_sync(config)
+            config = PushConfig(manifest_path=path)
+            run_push(config)
 
             # Verify issue was created
             assert mock_client.create_issue.called
@@ -133,7 +133,7 @@ class TestSyncWorkflow:
             "url": "https://linear.app/issue/ENG-123",
         }
 
-        config = SyncConfig(manifest_path=Path("test.yaml"), dry_run=False)
+        config = PushConfig(manifest_path=Path("test.yaml"), dry_run=False)
         _process_issue(mock_linear_client, team_context, spec, config)
 
         mock_linear_client.create_issue.assert_called_once()
@@ -169,7 +169,7 @@ class TestSyncWorkflow:
             "url": "https://linear.app/issue/ENG-123",
         }
 
-        config = SyncConfig(manifest_path=Path("test.yaml"), dry_run=False)
+        config = PushConfig(manifest_path=Path("test.yaml"), dry_run=False)
         _process_issue(mock_linear_client, team_context, spec, config)
 
         mock_linear_client.update_issue.assert_called_once()
@@ -195,7 +195,7 @@ class TestSyncWorkflow:
 
         mock_linear_client.fetch_issue_by_identifier.return_value = None
 
-        config = SyncConfig(manifest_path=Path("test.yaml"), dry_run=True)
+        config = PushConfig(manifest_path=Path("test.yaml"), dry_run=True)
         _process_issue(mock_linear_client, team_context, spec, config)
 
         mock_linear_client.create_issue.assert_not_called()
@@ -223,7 +223,7 @@ class TestSyncWorkflow:
             "title": "Old Title",
         }
 
-        config = SyncConfig(manifest_path=Path("test.yaml"), dry_run=True)
+        config = PushConfig(manifest_path=Path("test.yaml"), dry_run=True)
         _process_issue(mock_linear_client, team_context, spec, config)
 
         mock_linear_client.update_issue.assert_not_called()
@@ -251,7 +251,7 @@ class TestSyncWorkflow:
             "url": "https://linear.app/issue/ENG-123",
         }
 
-        config = SyncConfig(manifest_path=Path("test.yaml"))
+        config = PushConfig(manifest_path=Path("test.yaml"))
         _process_issue(mock_linear_client, team_context, spec, config)
 
         call_args = mock_linear_client.create_issue.call_args[0][0]
@@ -280,7 +280,7 @@ class TestSyncWorkflow:
             "url": "https://linear.app/issue/ENG-123",
         }
 
-        config = SyncConfig(manifest_path=Path("test.yaml"))
+        config = PushConfig(manifest_path=Path("test.yaml"))
         _process_issue(mock_linear_client, team_context, spec, config)
 
         call_args = mock_linear_client.create_issue.call_args[0][0]
